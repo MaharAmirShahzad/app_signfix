@@ -3,10 +3,31 @@ import '../../core/app_theme.dart';
 import '../../core/app_utils.dart';
 import '../../services/api_client.dart';
 
-class OrderDetailScreen extends StatelessWidget {
+class OrderDetailScreen extends StatefulWidget {
   const OrderDetailScreen({super.key, required this.api, required this.orderId});
   final ApiClient api;
   final String orderId;
+  @override
+  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
+}
+
+class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  late Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.api.orderDetail(widget.orderId);
+  }
+
+  void _handleAuthError() async {
+    await widget.api.logout();
+    if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+  }
+
+  void _reload() {
+    setState(() => _future = widget.api.orderDetail(widget.orderId));
+  }
 
   Color _statusColor(String s) {
     switch (s) {
@@ -31,21 +52,50 @@ class OrderDetailScreen extends StatelessWidget {
         icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Text(orderId,
+      title: Text(widget.orderId,
           style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.white)),
     ),
     body: FutureBuilder<Map<String, dynamic>>(
-      future: api.orderDetail(orderId),
+      future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator(color: AppColors.gold));
         }
         if (snap.hasError) {
-          return Center(child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(snap.error.toString(),
-                style: const TextStyle(color: AppColors.textLight)),
-          ));
+          final errMsg = snap.error.toString();
+          final isAuthError = errMsg.toLowerCase().contains('authentication') ||
+              errMsg.toLowerCase().contains('unauthorized') ||
+              errMsg.toLowerCase().contains('token') ||
+              errMsg.toLowerCase().contains('401');
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isAuthError ? AppColors.warning.withValues(alpha: .1) : AppColors.danger.withValues(alpha: .1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isAuthError ? AppColors.warning : AppColors.danger, width: 2),
+                  ),
+                  child: Icon(isAuthError ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
+                      color: isAuthError ? AppColors.warning : AppColors.danger, size: 40),
+                ),
+                const SizedBox(height: 20),
+                Text(isAuthError ? 'Session Expired' : 'Could Not Load Order',
+                    style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(isAuthError ? 'Your session has expired. Please sign in again.' : 'Unable to load data. Please try again.',
+                    style: const TextStyle(color: AppColors.textLight, fontSize: 13), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                SizedBox(width: double.infinity,
+                  child: isAuthError
+                      ? FilledButton.icon(onPressed: _handleAuthError, icon: const Icon(Icons.login_rounded), label: const Text('Sign In Again'))
+                      : OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh_rounded), label: const Text('Try Again')),
+                ),
+              ]),
+            ),
+          );
         }
         final o           = snap.data!;
         final status      = o['status']?.toString() ?? 'pending';

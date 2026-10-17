@@ -7,6 +7,7 @@ import '../../services/api_client.dart';
 import '../activity/activity_screen.dart';
 import '../ai/ai_chat.dart';
 import '../notifications/notifications_screen.dart';
+import '../orders/order_detail_screen.dart';
 import '../orders/order_wizard.dart';
 import '../profile/profile_screen.dart';
 import '../service/service_request.dart';
@@ -32,7 +33,7 @@ class _CustomerHomeState extends State<CustomerHome> {
     super.initState();
     // ✅ FIX: pages ek baar banao — har setState pe recreate nahi hongi
     _pages = [
-      _Dashboard(api: widget.api, onOrder: () => _goTo(1), onService: () => _goTo(2), onGoToTrack: (tab) {
+      _Dashboard(api: widget.api, onOrder: () => _goTo(1), onService: () => _goTo(2), onLogout: widget.onLogout, onGoToTrack: (tab) {
         _goTo(3); // go to Track tab
         // Pass tab index via a short delay so Track screen builds first
         Future.delayed(const Duration(milliseconds: 100), () {
@@ -160,11 +161,12 @@ class _NotificationBellState extends State<_NotificationBell> {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 class _Dashboard extends StatefulWidget {
-  const _Dashboard({required this.api, required this.onOrder, required this.onService, required this.onGoToTrack});
+  const _Dashboard({required this.api, required this.onOrder, required this.onService, required this.onGoToTrack, required this.onLogout});
   final ApiClient api;
   final VoidCallback onOrder;
   final VoidCallback onService;
   final void Function(int tabIndex) onGoToTrack; // 0=orders, 1=services
+  final VoidCallback onLogout;
   @override
   State<_Dashboard> createState() => _DashboardState();
 }
@@ -209,6 +211,61 @@ class _DashboardState extends State<_Dashboard> {
     super.dispose();
   }
 
+  void _handleAuthError() async {
+    await widget.api.logout();
+    if (mounted) widget.onLogout();
+  }
+
+  void _reload() {
+    setState(() {
+      _ordersFuture = widget.api.orders();
+      _servicesFuture = widget.api.services();
+      _profileFuture = widget.api.getProfile();
+    });
+  }
+
+  // ── Auth-aware error widget (embedded in home dashboard) ─────────────────
+  Widget _errorWidget(Object error) {
+    final errMsg = error.toString();
+    final isAuthError = errMsg.toLowerCase().contains('authentication') ||
+        errMsg.toLowerCase().contains('unauthorized') ||
+        errMsg.toLowerCase().contains('token') ||
+        errMsg.toLowerCase().contains('401');
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isAuthError ? AppColors.warning.withValues(alpha: .1) : AppColors.danger.withValues(alpha: .1),
+              shape: BoxShape.circle,
+              border: Border.all(color: isAuthError ? AppColors.warning : AppColors.danger, width: 2),
+            ),
+            child: Icon(isAuthError ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
+                color: isAuthError ? AppColors.warning : AppColors.danger, size: 40),
+          ),
+          const SizedBox(height: 20),
+          Text(isAuthError ? 'Session Expired' : 'Could Not Load',
+              style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text(
+            isAuthError ? 'Your session has expired. Please sign in again.' : 'Unable to load data. Please try again.',
+            style: const TextStyle(color: AppColors.textLight, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: isAuthError
+                ? FilledButton.icon(onPressed: _handleAuthError, icon: const Icon(Icons.login_rounded), label: const Text('Sign In Again'))
+                : OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh_rounded), label: const Text('Try Again')),
+          ),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: EdgeInsets.zero,
@@ -230,6 +287,7 @@ class _DashboardState extends State<_Dashboard> {
           FutureBuilder<Map<String, dynamic>>(
             future: _profileFuture,
             builder: (_, snap) {
+              if (snap.hasError) return _errorWidget(snap.error!);
               // Show first name only — strip "Demo" if default
               String name = snap.data?['name']?.toString() ?? '';
               if (name.isEmpty || name == 'Demo Customer') name = 'there';
@@ -276,6 +334,7 @@ class _DashboardState extends State<_Dashboard> {
             builder: (_, oSnap) => FutureBuilder<List<dynamic>>(
               future: _servicesFuture,
               builder: (_, sSnap) {
+                if (oSnap.hasError || sSnap.hasError) return _errorWidget(oSnap.error ?? sSnap.error!);
                 final orders = oSnap.data ?? [];
                 final services = sSnap.data ?? [];
                 final activeOrders = orders.where((o) => !['delivered','cancelled'].contains(o['status'])).length;
@@ -320,6 +379,7 @@ class _DashboardState extends State<_Dashboard> {
             future: _ordersFuture,
             builder: (_, snap) {
               if (snap.connectionState != ConnectionState.done) return const SizedBox();
+              if (snap.hasError) return _errorWidget(snap.error!);
               final recent = (snap.data ?? []).take(3).toList();
               if (recent.isEmpty) {
                 return Container(
@@ -335,31 +395,45 @@ class _DashboardState extends State<_Dashboard> {
               }
               return Column(
                 children: recent.map((o) {
-                  final status = o['status']?.toString() ?? 'pending';
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.navyDark,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.navyLight),
-                    ),
-                    child: Row(children: [
-                      Container(
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                          color: AppColors.gold.withValues(alpha: .1),
-                          borderRadius: BorderRadius.circular(10),
+                  final status  = o['status']?.toString() ?? 'pending';
+                  final orderId = o['id']?.toString() ?? '';
+                  return GestureDetector(
+                    onTap: orderId.isEmpty ? null : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailScreen(
+                          api: widget.api,
+                          orderId: orderId,
                         ),
-                        child: const Icon(Icons.storefront_outlined, color: AppColors.gold, size: 18),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(o['id']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.white, fontSize: 13)),
-                        Text(o['product']?.toString() ?? '', style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
-                      ])),
-                      _StatusBadge(status),
-                    ]),
+                    ),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.navyDark,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.navyLight),
+                      ),
+                      child: Row(children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withValues(alpha: .1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.storefront_outlined, color: AppColors.gold, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(orderId, style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.white, fontSize: 13)),
+                          Text(o['product']?.toString() ?? '', style: const TextStyle(color: AppColors.textLight, fontSize: 12)),
+                        ])),
+                        _StatusBadge(status),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textMuted),
+                      ]),
+                    ),
                   );
                 }).toList(),
               );
@@ -371,11 +445,11 @@ class _DashboardState extends State<_Dashboard> {
           const Text('How SignFix Works', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.white)),
           const SizedBox(height: 12),
           ...[
-            (Icons.tune_rounded,           AppColors.gold,    '1. Configure',    'Select type, size, material & lighting'),
-            (Icons.calculate_outlined,     AppColors.goldLight,'2. Get Estimate', 'Instant price calculation on the app'),
-            (Icons.local_shipping_outlined,AppColors.info,    '3. Track Order',  'Follow production to delivery in real time'),
-            (Icons.build_circle_outlined,  AppColors.success, '4. Service Anytime','Report issues — technician dispatched fast'),
-          ].map((e) => _HowItWorksRow(e.$1, e.$2, e.$3, e.$4)),
+            (Icons.tune_rounded,            AppColors.gold,     '1. Configure',      'Select type, size, material & lighting',    widget.onOrder),
+            (Icons.calculate_outlined,      AppColors.goldLight, '2. Get Estimate',   'Instant price calculation on the app',      widget.onOrder),
+            (Icons.local_shipping_outlined, AppColors.info,     '3. Track Order',    'Follow production to delivery in real time', () => widget.onGoToTrack(0)),
+            (Icons.build_circle_outlined,   AppColors.success,  '4. Service Anytime','Report issues — technician dispatched fast', widget.onService),
+          ].map((e) => _HowItWorksRow(e.$1, e.$2, e.$3, e.$4, onTap: e.$5)),
 
           const SizedBox(height: 30),
         ]),
@@ -587,29 +661,46 @@ class _StatusBadge extends StatelessWidget {
 
 // ── How It Works Row ──────────────────────────────────────────────────────────
 class _HowItWorksRow extends StatelessWidget {
-  const _HowItWorksRow(this.icon, this.color, this.title, this.subtitle);
+  const _HowItWorksRow(this.icon, this.color, this.title, this.subtitle, {this.onTap});
   final IconData icon;
   final Color color;
   final String title, subtitle;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Row(children: [
-      Container(
-        padding: const EdgeInsets.all(10),
+    child: GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: .1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: .2)),
+          color: onTap != null ? color.withValues(alpha: .06) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: onTap != null ? color.withValues(alpha: .25) : Colors.transparent,
+          ),
         ),
-        child: Icon(icon, color: color, size: 18),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: .2)),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.white, fontSize: 13)),
+            Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+          ])),
+          if (onTap != null)
+            Icon(Icons.arrow_forward_ios_rounded, size: 13, color: color.withValues(alpha: .7)),
+        ]),
       ),
-      const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.white, fontSize: 13)),
-        Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
-      ])),
-    ]),
+    ),
   );
 }
 
