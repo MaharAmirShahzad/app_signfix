@@ -83,7 +83,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.dispose();
   }
 
-  Future<void> _launch() async {
+  Future<void> _launch({String? method, String? upiId}) async {
     setState(() {
       _launched = true;
       _processing = true;
@@ -126,6 +126,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
       _paymentIntentId = paymentIntentId;
 
+      final methodHint = method == null
+          ? null
+          : switch (method) {
+              'upi' => {'upi': 1},
+              'card' => {'card': 1},
+              'netbanking' => {'netbanking': 1},
+              'wallet' => {'wallet': 1},
+              'emi' => {'emi': 1},
+              _ => null,
+            };
+
       _razorpay.open({
         'key': keyId,
         'amount': checkoutAmount,
@@ -138,7 +149,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'name': widget.customerName,
           'email': widget.customerEmail,
           'contact': widget.customerPhone,
+          if (upiId != null && upiId.isNotEmpty) 'vpa': upiId,
         },
+        if (methodHint != null) 'method': methodHint,
         'theme': {
           'color': '#F5A623',
           'backdrop_color': '#0D1B4B',
@@ -308,16 +321,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     amount: widget.amount,
                     description: widget.description,
                     customerName: widget.customerName,
-                    onPay: () {
-                      _launch();
-                    },
+                    onPay: (method, upiId) =>
+                        _launch(method: method, upiId: upiId),
                     launched: _launched,
                   ),
       );
 }
 
 // ── Payment Summary Page ──────────────────────────────────────────────────────
-class _PaymentSummary extends StatelessWidget {
+class _PaymentSummary extends StatefulWidget {
   const _PaymentSummary({
     required this.orderId,
     required this.paymentType,
@@ -329,8 +341,48 @@ class _PaymentSummary extends StatelessWidget {
   });
   final String orderId, paymentType, description, customerName;
   final double amount;
-  final VoidCallback onPay;
+  final void Function(String method, String? upiId) onPay;
   final bool launched;
+
+  @override
+  State<_PaymentSummary> createState() => _PaymentSummaryState();
+}
+
+class _PaymentSummaryState extends State<_PaymentSummary> {
+  String _selectedMethod = 'upi'; // UPI selected by default
+  final TextEditingController _upiController = TextEditingController();
+  String? _upiError;
+
+  static final _upiRegex = RegExp(r'^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,}$');
+
+  @override
+  void dispose() {
+    _upiController.dispose();
+    super.dispose();
+  }
+
+  void _select(String id) => setState(() => _selectedMethod = id);
+
+  String get _methodLabel => switch (_selectedMethod) {
+        'card' => 'Card',
+        'netbanking' => 'Net Banking',
+        'wallet' => 'Wallet',
+        'emi' => 'EMI',
+        _ => 'UPI',
+      };
+
+  void _pay() {
+    if (widget.launched) return;
+    final upiId = _upiController.text.trim();
+    if (_selectedMethod == 'upi' &&
+        upiId.isNotEmpty &&
+        !_upiRegex.hasMatch(upiId)) {
+      setState(() => _upiError = 'Enter a valid UPI ID (e.g. username@bank)');
+      return;
+    }
+    if (_upiError != null) setState(() => _upiError = null);
+    widget.onPay(_selectedMethod, _selectedMethod == 'upi' ? upiId : null);
+  }
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -370,7 +422,7 @@ class _PaymentSummary extends StatelessWidget {
                               color: AppColors.white,
                               fontWeight: FontWeight.w800,
                               fontSize: 16)),
-                      Text(orderId,
+                      Text(widget.orderId,
                           style: const TextStyle(
                               color: AppColors.gold,
                               fontSize: 12,
@@ -380,10 +432,10 @@ class _PaymentSummary extends StatelessWidget {
               const SizedBox(height: 16),
               Divider(color: AppColors.navyLight.withValues(alpha: .6)),
               const SizedBox(height: 12),
-              _SummaryRow('Customer', customerName),
+              _SummaryRow('Customer', widget.customerName),
               _SummaryRow('Payment option',
-                  paymentType == 'advance' ? '25% advance' : 'Full balance'),
-              _SummaryRow('Description', description),
+                  widget.paymentType == 'advance' ? '25% advance' : 'Full balance'),
+              _SummaryRow('Description', widget.description),
               const SizedBox(height: 12),
               Divider(color: AppColors.navyLight.withValues(alpha: .6)),
               const SizedBox(height: 12),
@@ -394,7 +446,7 @@ class _PaymentSummary extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.w700)),
                 Text(
-                  '₹${amount.toStringAsFixed(0)}',
+                  '₹${widget.amount.toStringAsFixed(0)}',
                   style: const TextStyle(
                       color: AppColors.gold,
                       fontSize: 26,
@@ -406,30 +458,59 @@ class _PaymentSummary extends StatelessWidget {
           const SizedBox(height: 24),
 
           // ── Payment methods info ─────────────────────────────────────────────
-          const Text('Accepted Payment Methods',
+          const Text('Select a Payment Method',
               style: TextStyle(
                   color: AppColors.textLight,
                   fontWeight: FontWeight.w700,
                   fontSize: 14)),
           const SizedBox(height: 12),
-          const Row(children: [
+          Row(children: [
             _PayMethod(Icons.account_balance_wallet_outlined, 'UPI / GPay',
-                AppColors.gold),
-            SizedBox(width: 10),
-            _PayMethod(
-                Icons.credit_card_outlined, 'Credit / Debit', AppColors.info),
-            SizedBox(width: 10),
+                AppColors.gold,
+                selected: _selectedMethod == 'upi',
+                onTap: () => _select('upi')),
+            const SizedBox(width: 10),
+            _PayMethod(Icons.credit_card_outlined, 'Credit / Debit',
+                AppColors.info,
+                selected: _selectedMethod == 'card',
+                onTap: () => _select('card')),
+            const SizedBox(width: 10),
             _PayMethod(Icons.account_balance_outlined, 'Net Banking',
-                AppColors.success),
+                AppColors.success,
+                selected: _selectedMethod == 'netbanking',
+                onTap: () => _select('netbanking')),
           ]),
           const SizedBox(height: 12),
-          const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _PayMethod(
-                Icons.phone_android_outlined, 'Wallets', AppColors.warning),
-            SizedBox(width: 10),
-            _PayMethod(
-                Icons.currency_rupee_outlined, 'EMI', AppColors.textLight),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            _PayMethod(Icons.phone_android_outlined, 'Wallets',
+                AppColors.warning,
+                selected: _selectedMethod == 'wallet',
+                onTap: () => _select('wallet')),
+            const SizedBox(width: 10),
+            _PayMethod(Icons.currency_rupee_outlined, 'EMI',
+                AppColors.textLight,
+                selected: _selectedMethod == 'emi',
+                onTap: () => _select('emi')),
           ]),
+          if (_selectedMethod == 'upi') ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _upiController,
+              keyboardType: TextInputType.text,
+              autocorrect: false,
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: 'UPI ID',
+                hintText: 'e.g. username@bank',
+                prefixIcon:
+                    const Icon(Icons.alternate_email, color: AppColors.gold),
+                errorText: _upiError,
+              ),
+              onChanged: (_) {
+                if (_upiError != null) setState(() => _upiError = null);
+              },
+            ),
+          ],
           const SizedBox(height: 28),
 
           // ── Security badge ───────────────────────────────────────────────────
@@ -454,7 +535,7 @@ class _PaymentSummary extends StatelessWidget {
 
           // ── Pay button ────────────────────────────────────────────────────────
           GestureDetector(
-            onTap: launched ? null : onPay,
+            onTap: widget.launched ? null : _pay,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
@@ -478,7 +559,7 @@ class _PaymentSummary extends StatelessWidget {
                     color: AppColors.navyDeep, size: 18),
                 const SizedBox(width: 10),
                 Text(
-                  'Pay ₹${amount.toStringAsFixed(0)} Securely',
+                  'Pay ₹${widget.amount.toStringAsFixed(0)} via $_methodLabel',
                   style: const TextStyle(
                     color: AppColors.navyDeep,
                     fontSize: 17,
@@ -643,27 +724,52 @@ class _SummaryRow extends StatelessWidget {
 }
 
 class _PayMethod extends StatelessWidget {
-  const _PayMethod(this.icon, this.label, this.color);
+  const _PayMethod(this.icon, this.label, this.color,
+      {this.selected = false, this.onTap});
   final IconData icon;
   final String label;
   final Color color;
+  final bool selected;
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) => Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          decoration: BoxDecoration(
-            color: AppColors.navyDark,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withValues(alpha: .3)),
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.navyMid : AppColors.navyDark,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? AppColors.gold : AppColors.navyLight,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Stack(
+              children: [
+                Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(height: 5),
+                  Text(label,
+                      style: TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center),
+                ]),
+                if (selected)
+                  const Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Icon(Icons.check_circle,
+                        color: AppColors.gold, size: 16),
+                  ),
+              ],
+            ),
           ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 5),
-            Text(label,
-                style: TextStyle(
-                    color: color, fontSize: 10, fontWeight: FontWeight.w600),
-                textAlign: TextAlign.center),
-          ]),
         ),
       );
 }
