@@ -18,10 +18,10 @@ class OrderWizard extends StatefulWidget {
 class _OrderWizardState extends State<OrderWizard> {
   int step = 0;
   String type = 'LED Sign Board', material = 'Acrylic', lighting = 'LED';
-  final length   = TextEditingController(text: '10');
-  final width    = TextEditingController(text: '3');
+  final length = TextEditingController(text: '10');
+  final width = TextEditingController(text: '3');
   final quantity = TextEditingController(text: '1');
-  final address  = TextEditingController();
+  final address = TextEditingController();
   bool installation = true, transportation = true, loading = false;
   Map<String, dynamic>? quote;
   SignBoardTextDesign? _textDesign;
@@ -37,12 +37,33 @@ class _OrderWizardState extends State<OrderWizard> {
   static const _totalSteps = 5;
 
   static const _types = [
-    'LED Sign Board', 'Acrylic Sign Board', 'Flex Sign Board',
-    'Glow Sign Board', '3D Letter', 'Channel Letter',
-    'Neon Sign', 'Backlit Sign', 'Outdoor Signage', 'Custom Sign Board',
+    'LED Sign Board',
+    'Acrylic Sign Board',
+    'Flex Sign Board',
+    'Glow Sign Board',
+    '3D Letter',
+    'Channel Letter',
+    'Neon Sign',
+    'Backlit Sign',
+    'Outdoor Signage',
+    'Custom Sign Board',
   ];
-  static const _materials = ['Acrylic', 'ACP', 'PVC', 'Flex', 'Stainless Steel', 'Aluminium'];
-  static const _lightings = ['No Lighting', 'LED', 'Backlit', 'Neon', 'Front Lit', 'Custom'];
+  static const _materials = [
+    'Acrylic',
+    'ACP',
+    'PVC',
+    'Flex',
+    'Stainless Steel',
+    'Aluminium'
+  ];
+  static const _lightings = [
+    'No Lighting',
+    'LED',
+    'Backlit',
+    'Neon',
+    'Front Lit',
+    'Custom'
+  ];
 
   @override
   void dispose() {
@@ -60,10 +81,15 @@ class _OrderWizardState extends State<OrderWizard> {
   void _onAddressChanged(String value) {
     _debounce?.cancel();
     if (value.trim().length < 3) {
-      if (mounted) setState(() { _suggestions = []; _showSuggestions = false; });
+      if (mounted)
+        setState(() {
+          _suggestions = [];
+          _showSuggestions = false;
+        });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 600), () => _fetchSuggestions(value));
+    _debounce = Timer(
+        const Duration(milliseconds: 600), () => _fetchSuggestions(value));
   }
 
   Future<void> _fetchSuggestions(String query) async {
@@ -75,13 +101,15 @@ class _OrderWizardState extends State<OrderWizard> {
         '?q=${Uri.encodeComponent(query)}'
         '&format=json&addressdetails=1&limit=5&countrycodes=in',
       );
-      final res = await http.get(uri, headers: {'User-Agent': 'SignFix/1.0 (signfix@app.com)'})
-          .timeout(const Duration(seconds: 8));
+      final res = await http.get(uri, headers: {
+        'User-Agent': 'SignFix/1.0 (signfix@app.com)'
+      }).timeout(const Duration(seconds: 8));
       if (!mounted) return;
       if (res.statusCode == 200) {
         final list = jsonDecode(res.body) as List;
         setState(() {
-          _suggestions = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _suggestions =
+              list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
           _showSuggestions = _suggestions.isNotEmpty;
         });
       }
@@ -95,7 +123,10 @@ class _OrderWizardState extends State<OrderWizard> {
   void _selectSuggestion(Map<String, dynamic> place) {
     final display = place['display_name']?.toString() ?? '';
     address.text = display;
-    setState(() { _suggestions = []; _showSuggestions = false; });
+    setState(() {
+      _suggestions = [];
+      _showSuggestions = false;
+    });
     _addressFocus.unfocus();
   }
 
@@ -104,17 +135,24 @@ class _OrderWizardState extends State<OrderWizard> {
     final w = double.tryParse(width.text);
     final q = int.tryParse(quantity.text);
     if (l == null || w == null || q == null || l <= 0 || w <= 0 || q <= 0) {
-      _err('Enter valid dimensions and quantity.'); return;
+      _err('Enter valid dimensions and quantity.');
+      return;
     }
     if (address.text.trim().isEmpty) {
-      _err('Please enter the delivery / installation address.'); return;
+      _err('Please enter the delivery / installation address.');
+      return;
     }
     setState(() => loading = true);
     try {
       quote = await widget.api.calculate({
-        'product': type, 'length': l, 'width': w, 'quantity': q,
-        'material': material, 'lighting': lighting,
-        'installation': installation, 'transportation': transportation,
+        'product': type,
+        'length': l,
+        'width': w,
+        'quantity': q,
+        'material': material,
+        'lighting': lighting,
+        'installation': installation,
+        'transportation': transportation,
         if (_textDesign != null) 'signText': _textDesign!.text,
         if (_textDesign != null) 'signFont': _textDesign!.fontFamily,
       });
@@ -143,8 +181,8 @@ class _OrderWizardState extends State<OrderWizard> {
         'estimatedPrice': quote!['estimatedPrice'],
         if (_textDesign != null) 'signText': _textDesign!.text,
         if (_textDesign != null) 'signFont': _textDesign!.fontFamily,
-        if (_textDesign != null) 'signColor':
-            _textDesign!.color.toARGB32().toRadixString(16),
+        if (_textDesign != null)
+          'signColor': _textDesign!.color.toARGB32().toRadixString(16),
       });
       final id = order['id']?.toString();
       if (id == null || id.isEmpty) {
@@ -153,14 +191,27 @@ class _OrderWizardState extends State<OrderWizard> {
         );
       }
       if (mounted) {
-        await showDialog(context: context, builder: (_) => AlertDialog(
-          backgroundColor: AppColors.navyDark,
-          icon: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 48),
-          title: const Text('Order Saved', style: TextStyle(color: AppColors.white)),
-          content: Text('$id saved for admin review. Payment will be available after your final quotation is approved.',
-              style: const TextStyle(color: AppColors.textLight), textAlign: TextAlign.center),
-          actions: [FilledButton(onPressed: () { Navigator.pop(context); _reset(); }, child: const Text('OK'))],
-        ));
+        await showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+                  backgroundColor: AppColors.navyDark,
+                  icon: const Icon(Icons.check_circle_rounded,
+                      color: AppColors.success, size: 48),
+                  title: const Text('Order Saved',
+                      style: TextStyle(color: AppColors.white)),
+                  content: Text(
+                      '$id saved for admin review. Payment will be available after your final quotation is approved.',
+                      style: const TextStyle(color: AppColors.textLight),
+                      textAlign: TextAlign.center),
+                  actions: [
+                    FilledButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _reset();
+                        },
+                        child: const Text('OK'))
+                  ],
+                ));
       }
     } catch (e) {
       if (mounted) _err(e);
@@ -169,7 +220,11 @@ class _OrderWizardState extends State<OrderWizard> {
     }
   }
 
-  void _reset() => setState(() { step = 0; quote = null; _textDesign = null; });
+  void _reset() => setState(() {
+        step = 0;
+        quote = null;
+        _textDesign = null;
+      });
 
   // ── Step validation ──────────────────────────────────────────────────────
   bool _validateStep() {
@@ -198,7 +253,8 @@ class _OrderWizardState extends State<OrderWizard> {
           return false;
         }
         if (address.text.trim().isEmpty) {
-          _showValidationError('Please enter the delivery / installation address.');
+          _showValidationError(
+              'Please enter the delivery / installation address.');
           return false;
         }
         return true;
@@ -290,9 +346,8 @@ class _OrderWizardState extends State<OrderWizard> {
                   // Edit details — go back to Step 3 (Finish & Options)
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: loading
-                          ? null
-                          : () => setState(() => step = 3),
+                      onPressed:
+                          loading ? null : () => setState(() => step = 3),
                       icon: const Icon(Icons.edit_outlined, size: 16),
                       label: const Text('Edit Details'),
                     ),
@@ -332,7 +387,10 @@ class _OrderWizardState extends State<OrderWizard> {
           ),
           child: Text(
             'Step ${step + 1} of $_totalSteps',
-            style: const TextStyle(color: AppColors.gold, fontSize: 11, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 11,
+                fontWeight: FontWeight.w700),
           ),
         ),
         const SizedBox(width: 10),
@@ -367,369 +425,475 @@ class _OrderWizardState extends State<OrderWizard> {
 
   // ── Step 0: Text Designer ─────────────────────────────────────────────────
   List<Widget> _step0() => [
-    _heading('Design Your Sign Text', Icons.text_fields_rounded),
-    if (_textDesign != null) ...[
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
-        margin: const EdgeInsets.only(bottom: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF050A1A),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _textDesign!.color.withValues(alpha: .4)),
-          boxShadow: [BoxShadow(color: _textDesign!.color.withValues(alpha: .2), blurRadius: 16)],
-        ),
-        child: Center(
-          child: Text(
-            _textDesign!.text,
-            style: TextStyle(
-              fontFamily: _textDesign!.fontFamily,
-              fontSize: 28,
-              color: _textDesign!.color,
-              shadows: [
-                Shadow(color: _textDesign!.color.withValues(alpha: .8), blurRadius: 12),
-                Shadow(color: _textDesign!.color.withValues(alpha: .4), blurRadius: 24),
+        _heading('Design Your Sign Text', Icons.text_fields_rounded),
+        if (_textDesign != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF050A1A),
+              borderRadius: BorderRadius.circular(14),
+              border:
+                  Border.all(color: _textDesign!.color.withValues(alpha: .4)),
+              boxShadow: [
+                BoxShadow(
+                    color: _textDesign!.color.withValues(alpha: .2),
+                    blurRadius: 16)
               ],
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            child: Center(
+              child: Text(
+                _textDesign!.text,
+                style: TextStyle(
+                  fontFamily: _textDesign!.fontFamily,
+                  fontSize: 28,
+                  color: _textDesign!.color,
+                  shadows: [
+                    Shadow(
+                        color: _textDesign!.color.withValues(alpha: .8),
+                        blurRadius: 12),
+                    Shadow(
+                        color: _textDesign!.color.withValues(alpha: .4),
+                        blurRadius: 24),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
-        ),
-      ),
-      SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          onPressed: () async {
-            final r = await Navigator.push<SignBoardTextDesign>(context,
-                MaterialPageRoute(builder: (_) => TextDesignerScreen(initial: _textDesign)));
-            if (r != null && mounted) setState(() => _textDesign = r);
-          },
-          icon: const Icon(Icons.edit_rounded),
-          label: const Text('Edit Text Design'),
-        ),
-      ),
-    ] else ...[
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.navyDark, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.navyLight),
-        ),
-        child: Column(children: [
-          const Icon(Icons.text_fields_rounded, size: 48, color: AppColors.textMuted),
-          const SizedBox(height: 12),
-          const Text('Add your sign board text',
-              style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 15)),
-          const SizedBox(height: 6),
-          const Text('Choose font, color and preview the neon effect',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () async {
-              final r = await Navigator.push<SignBoardTextDesign>(context,
-                  MaterialPageRoute(builder: (_) => const TextDesignerScreen()));
-              if (r != null && mounted) setState(() => _textDesign = r);
-            },
-            icon: const Icon(Icons.auto_awesome_rounded),
-            label: const Text('Open Text Designer'),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                final r = await Navigator.push<SignBoardTextDesign>(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            TextDesignerScreen(initial: _textDesign)));
+                if (r != null && mounted) setState(() => _textDesign = r);
+              },
+              icon: const Icon(Icons.edit_rounded),
+              label: const Text('Edit Text Design'),
+            ),
           ),
-        ]),
-      ),
-      const SizedBox(height: 10),
-      Center(
-        child: TextButton(
-          onPressed: () => setState(() => step = 1),
-          child: const Text('Skip — Choose sign type instead',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-        ),
-      ),
-    ],
-  ];
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.navyDark,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.navyLight),
+            ),
+            child: Column(children: [
+              const Icon(Icons.text_fields_rounded,
+                  size: 48, color: AppColors.textMuted),
+              const SizedBox(height: 12),
+              const Text('Add your sign board text',
+                  style: TextStyle(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15)),
+              const SizedBox(height: 6),
+              const Text('Choose font, color and preview the neon effect',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () async {
+                  final r = await Navigator.push<SignBoardTextDesign>(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TextDesignerScreen()));
+                  if (r != null && mounted) setState(() => _textDesign = r);
+                },
+                icon: const Icon(Icons.auto_awesome_rounded),
+                label: const Text('Open Text Designer'),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => step = 1),
+              child: const Text('Skip — Choose sign type instead',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+            ),
+          ),
+        ],
+      ];
 
   // ── Step 1: Sign Type ─────────────────────────────────────────────────────
   List<Widget> _step1() => [
-    _heading('Choose Sign Type', Icons.storefront_rounded),
-    Wrap(
-      spacing: 8, runSpacing: 8,
-      children: _types.map((x) => ChoiceChip(
-        label: Text(x),
-        selected: type == x,
-        selectedColor: AppColors.gold.withValues(alpha: .2),
-        checkmarkColor: AppColors.gold,
-        onSelected: (_) => setState(() => type = x),
-      )).toList(),
-    ),
-  ];
+        _heading('Choose Sign Type', Icons.storefront_rounded),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _types
+              .map((x) => ChoiceChip(
+                    label: Text(x),
+                    selected: type == x,
+                    selectedColor: AppColors.gold.withValues(alpha: .2),
+                    checkmarkColor: AppColors.gold,
+                    onSelected: (_) => setState(() => type = x),
+                  ))
+              .toList(),
+        ),
+      ];
 
   // ── Step 2: Dimensions ────────────────────────────────────────────────────
   List<Widget> _step2() => [
-    _heading('Dimensions & Delivery', Icons.straighten_rounded),
-    Row(children: [
-      Expanded(child: TextField(
-        controller: length, keyboardType: TextInputType.number,
-        style: const TextStyle(color: AppColors.white),
-        decoration: const InputDecoration(labelText: 'Length (ft)', prefixIcon: Icon(Icons.height_rounded)),
-      )),
-      const SizedBox(width: 10),
-      Expanded(child: TextField(
-        controller: width, keyboardType: TextInputType.number,
-        style: const TextStyle(color: AppColors.white),
-        decoration: const InputDecoration(labelText: 'Width (ft)', prefixIcon: Icon(Icons.expand_rounded)),
-      )),
-    ]),
-    const SizedBox(height: 12),
-    TextField(
-      controller: quantity, keyboardType: TextInputType.number,
-      style: const TextStyle(color: AppColors.white),
-      decoration: const InputDecoration(labelText: 'Quantity', prefixIcon: Icon(Icons.format_list_numbered_rounded)),
-    ),
-    const SizedBox(height: 12),
-    // ── Address field with autocomplete ──────────────────────────────────
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+        _heading('Dimensions & Delivery', Icons.straighten_rounded),
+        Row(children: [
+          Expanded(
+              child: TextField(
+            controller: length,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: AppColors.white),
+            decoration: const InputDecoration(
+                labelText: 'Length (ft)',
+                prefixIcon: Icon(Icons.height_rounded)),
+          )),
+          const SizedBox(width: 10),
+          Expanded(
+              child: TextField(
+            controller: width,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: AppColors.white),
+            decoration: const InputDecoration(
+                labelText: 'Width (ft)',
+                prefixIcon: Icon(Icons.expand_rounded)),
+          )),
+        ]),
+        const SizedBox(height: 12),
         TextField(
-          controller: address,
-          focusNode: _addressFocus,
-          maxLines: 2,
+          controller: quantity,
+          keyboardType: TextInputType.number,
           style: const TextStyle(color: AppColors.white),
-          onChanged: _onAddressChanged,
-          onTap: () {
-            if (address.text.trim().length >= 3) {
-              setState(() => _showSuggestions = _suggestions.isNotEmpty);
-            }
-          },
-          decoration: InputDecoration(
-            labelText: 'Delivery / installation address',
-            prefixIcon: const Icon(Icons.location_on_outlined),
-            suffixIcon: _loadingSuggestions
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
-                    ),
-                  )
-                : address.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18, color: AppColors.textMuted),
-                        onPressed: () {
-                          address.clear();
-                          setState(() { _suggestions = []; _showSuggestions = false; });
-                        },
-                      )
-                    : null,
-          ),
+          decoration: const InputDecoration(
+              labelText: 'Quantity',
+              prefixIcon: Icon(Icons.format_list_numbered_rounded)),
         ),
-        // Suggestions dropdown
-        if (_showSuggestions && _suggestions.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            decoration: BoxDecoration(
-              color: AppColors.navyMid,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.gold.withValues(alpha: .3)),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .3), blurRadius: 8)],
+        const SizedBox(height: 12),
+        // ── Address field with autocomplete ──────────────────────────────────
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: address,
+              focusNode: _addressFocus,
+              maxLines: 2,
+              style: const TextStyle(color: AppColors.white),
+              onChanged: _onAddressChanged,
+              onTap: () {
+                if (address.text.trim().length >= 3) {
+                  setState(() => _showSuggestions = _suggestions.isNotEmpty);
+                }
+              },
+              decoration: InputDecoration(
+                labelText: 'Delivery / installation address',
+                prefixIcon: const Icon(Icons.location_on_outlined),
+                suffixIcon: _loadingSuggestions
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.gold),
+                        ),
+                      )
+                    : address.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear,
+                                size: 18, color: AppColors.textMuted),
+                            onPressed: () {
+                              address.clear();
+                              setState(() {
+                                _suggestions = [];
+                                _showSuggestions = false;
+                              });
+                            },
+                          )
+                        : null,
+              ),
             ),
-            child: Column(
-              children: _suggestions.asMap().entries.map((entry) {
-                final i = entry.key;
-                final place = entry.value;
-                final name = place['display_name']?.toString() ?? '';
-                final parts = name.split(', ');
-                final title = parts.take(2).join(', ');
-                final subtitle = parts.skip(2).take(3).join(', ');
-                return Column(
-                  children: [
-                    InkWell(
-                      onTap: () => _selectSuggestion(place),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        child: Row(children: [
-                          const Icon(Icons.place_outlined, color: AppColors.gold, size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(title,
-                                  style: const TextStyle(color: AppColors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis),
-                              if (subtitle.isNotEmpty)
-                                Text(subtitle,
-                                    style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                                    maxLines: 1, overflow: TextOverflow.ellipsis),
+            // Suggestions dropdown
+            if (_showSuggestions && _suggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.navyMid,
+                  borderRadius: BorderRadius.circular(12),
+                  border:
+                      Border.all(color: AppColors.gold.withValues(alpha: .3)),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: .3),
+                        blurRadius: 8)
+                  ],
+                ),
+                child: Column(
+                  children: _suggestions.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final place = entry.value;
+                    final name = place['display_name']?.toString() ?? '';
+                    final parts = name.split(', ');
+                    final title = parts.take(2).join(', ');
+                    final subtitle = parts.skip(2).take(3).join(', ');
+                    return Column(
+                      children: [
+                        InkWell(
+                          onTap: () => _selectSuggestion(place),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            child: Row(children: [
+                              const Icon(Icons.place_outlined,
+                                  color: AppColors.gold, size: 18),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(title,
+                                          style: const TextStyle(
+                                              color: AppColors.white,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
+                                      if (subtitle.isNotEmpty)
+                                        Text(subtitle,
+                                            style: const TextStyle(
+                                                color: AppColors.textMuted,
+                                                fontSize: 11),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis),
+                                    ]),
+                              ),
                             ]),
                           ),
-                        ]),
-                      ),
-                    ),
-                    if (i < _suggestions.length - 1)
-                      const Divider(height: 0, color: AppColors.navyLight, indent: 42),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        if (_showSuggestions && _suggestions.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4),
-            child: Row(children: [
-              const Icon(Icons.info_outline, size: 11, color: AppColors.textMuted),
-              const SizedBox(width: 4),
-              const Text('Powered by OpenStreetMap',
-                  style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-            ]),
-          ),
-      ],
-    ),
-  ];
+                        ),
+                        if (i < _suggestions.length - 1)
+                          const Divider(
+                              height: 0,
+                              color: AppColors.navyLight,
+                              indent: 42),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            if (_showSuggestions && _suggestions.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 4, left: 4),
+                child: Row(children: [
+                  Icon(Icons.info_outline,
+                      size: 11, color: AppColors.textMuted),
+                  SizedBox(width: 4),
+                  Text('Powered by OpenStreetMap',
+                      style:
+                          TextStyle(fontSize: 10, color: AppColors.textMuted)),
+                ]),
+              ),
+          ],
+        ),
+      ];
 
   // ── Step 3: Finish & Options ──────────────────────────────────────────────
   List<Widget> _step3() => [
-    _heading('Finish & Options', Icons.palette_rounded),
-    DropdownButtonFormField<String>(
-      initialValue: material,
-      decoration: const InputDecoration(labelText: 'Material'),
-      dropdownColor: AppColors.navyMid,
-      items: _materials.map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(),
-      onChanged: (v) => setState(() => material = v!),
-    ),
-    const SizedBox(height: 12),
-    DropdownButtonFormField<String>(
-      initialValue: lighting,
-      decoration: const InputDecoration(labelText: 'Lighting'),
-      dropdownColor: AppColors.navyMid,
-      items: _lightings.map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(),
-      onChanged: (v) => setState(() => lighting = v!),
-    ),
-    const SizedBox(height: 12),
-    Material(
-      color: AppColors.navyDark,
-      borderRadius: BorderRadius.circular(14),
-      child: Column(children: [
-        SwitchListTile(
-          value: installation, onChanged: (v) => setState(() => installation = v),
-          title: const Text('Installation required'),
-          subtitle: const Text('+₹1,500'),
+        _heading('Finish & Options', Icons.palette_rounded),
+        DropdownButtonFormField<String>(
+          initialValue: material,
+          decoration: const InputDecoration(labelText: 'Material'),
+          dropdownColor: AppColors.navyMid,
+          items: _materials
+              .map((x) => DropdownMenuItem(value: x, child: Text(x)))
+              .toList(),
+          onChanged: (v) => setState(() => material = v!),
         ),
-        const Divider(height: 0, color: AppColors.navyLight),
-        SwitchListTile(
-          value: transportation, onChanged: (v) => setState(() => transportation = v),
-          title: const Text('Transportation required'),
-          subtitle: const Text('+₹800'),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: lighting,
+          decoration: const InputDecoration(labelText: 'Lighting'),
+          dropdownColor: AppColors.navyMid,
+          items: _lightings
+              .map((x) => DropdownMenuItem(value: x, child: Text(x)))
+              .toList(),
+          onChanged: (v) => setState(() => lighting = v!),
         ),
-      ]),
-    ),
-  ];
+        const SizedBox(height: 12),
+        Material(
+          color: AppColors.navyDark,
+          borderRadius: BorderRadius.circular(14),
+          child: Column(children: [
+            SwitchListTile(
+              value: installation,
+              onChanged: (v) => setState(() => installation = v),
+              title: const Text('Installation required'),
+              subtitle: const Text('+₹1,500'),
+            ),
+            const Divider(height: 0, color: AppColors.navyLight),
+            SwitchListTile(
+              value: transportation,
+              onChanged: (v) => setState(() => transportation = v),
+              title: const Text('Transportation required'),
+              subtitle: const Text('+₹800'),
+            ),
+          ]),
+        ),
+      ];
 
   // ── Step 4: Quote + Payment ───────────────────────────────────────────────
   List<Widget> _step4() => [
-    _heading('Price Estimate', Icons.calculate_rounded),
+        _heading('Price Estimate', Icons.calculate_rounded),
 
-    // Breakdown
-    Container(
-      decoration: BoxDecoration(
-        color: AppColors.navyDark, borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.navyLight),
-      ),
-      child: Column(children: [
-        ...[
-          'productCost', 'materialCost', 'lightingCost',
-          'installation', 'transportation', 'gst',
-        ].where((k) => (quote![k] ?? 0) > 0).map((k) =>
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(children: [
-              Text(humanize(k), style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
-              const Spacer(),
-              Text(money(quote![k]),
-                  style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
+        // Breakdown
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.navyDark,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.navyLight),
           ),
-        ).expand((w) => [w, const Divider(height: 0, color: AppColors.navyLight)]).toList()
-        ..removeLast(),
-      ]),
-    ),
-    const SizedBox(height: 14),
-
-    // Total
-    Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2A1800), Color(0xFF1A0F00)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          child: Column(children: [
+            ...[
+              'productCost',
+              'materialCost',
+              'lightingCost',
+              'installation',
+              'transportation',
+              'gst',
+            ]
+                .where((k) => (quote![k] ?? 0) > 0)
+                .map(
+                  (k) => Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    child: Row(children: [
+                      Text(humanize(k),
+                          style: const TextStyle(
+                              color: AppColors.textLight, fontSize: 13)),
+                      const Spacer(),
+                      Text(money(quote![k]),
+                          style: const TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13)),
+                    ]),
+                  ),
+                )
+                .expand((w) =>
+                    [w, const Divider(height: 0, color: AppColors.navyLight)])
+                .toList()
+              ..removeLast(),
+          ]),
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
-        boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .12), blurRadius: 16)],
-      ),
-      child: Row(children: [
-        const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Estimated Total', style: TextStyle(color: AppColors.textLight, fontSize: 13)),
-          Text('incl. GST', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
-        ]),
-        const Spacer(),
-        Text(money(quote!['estimatedPrice']),
-            style: const TextStyle(color: AppColors.gold, fontSize: 30, fontWeight: FontWeight.w900)),
-      ]),
-    ),
-    const SizedBox(height: 8),
-    Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.navyDark, borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.navyLight),
-      ),
-      child: const Row(children: [
-        Icon(Icons.info_outline, size: 13, color: AppColors.textMuted),
-        SizedBox(width: 8),
-        Expanded(child: Text('This is an estimate only. Payment becomes available after admin review and your approval of the final quotation.',
-            style: TextStyle(fontSize: 11, color: AppColors.textMuted))),
-      ]),
-    ),
-    const SizedBox(height: 20),
+        const SizedBox(height: 14),
 
-    SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: loading ? null : _submitOrder,
-        icon: loading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.navyDeep,
-                ),
-              )
-            : const Icon(Icons.send_rounded),
-        label: Text(loading ? 'Submitting order…' : 'Submit order for review'),
-      ),
-    ),
-    const SizedBox(height: 8),
-    const Center(child: Text('No payment is collected at this estimate stage.',
-        style: TextStyle(fontSize: 11, color: AppColors.textMuted))),
-  ];
+        // Total
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2A1800), Color(0xFF1A0F00)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
+            boxShadow: [
+              BoxShadow(
+                  color: AppColors.gold.withValues(alpha: .12), blurRadius: 16)
+            ],
+          ),
+          child: Row(children: [
+            const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Estimated Total',
+                      style:
+                          TextStyle(color: AppColors.textLight, fontSize: 13)),
+                  Text('incl. GST',
+                      style:
+                          TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                ]),
+            const Spacer(),
+            Text(money(quote!['estimatedPrice']),
+                style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900)),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.navyDark,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.navyLight),
+          ),
+          child: const Row(children: [
+            Icon(Icons.info_outline, size: 13, color: AppColors.textMuted),
+            SizedBox(width: 8),
+            Expanded(
+                child: Text(
+                    'This is an estimate only. Payment becomes available after admin review and your approval of the final quotation.',
+                    style:
+                        TextStyle(fontSize: 11, color: AppColors.textMuted))),
+          ]),
+        ),
+        const SizedBox(height: 20),
+
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: loading ? null : _submitOrder,
+            icon: loading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.navyDeep,
+                    ),
+                  )
+                : const Icon(Icons.send_rounded),
+            label:
+                Text(loading ? 'Submitting order…' : 'Submit order for review'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Center(
+            child: Text('No payment is collected at this estimate stage.',
+                style: TextStyle(fontSize: 11, color: AppColors.textMuted))),
+      ];
 
   // ── Heading widget ────────────────────────────────────────────────────────
   Widget _heading(String text, IconData icon) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Row(children: [
-      Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: AppColors.gold.withValues(alpha: .12),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: AppColors.gold, size: 20),
-      ),
-      const SizedBox(width: 12),
-      Flexible(
-        child: Text(text,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.white)),
-      ),
-    ]),
-  );
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: AppColors.gold, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(text,
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.white)),
+          ),
+        ]),
+      );
 }
