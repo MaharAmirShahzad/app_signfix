@@ -58,6 +58,15 @@ class _JobsScreenState extends State<JobsScreen> {
     setState(() => _future = f);
   }
 
+  void _handleAuthError() async {
+    await widget.api.logout();
+    if (mounted) widget.onLogout();
+  }
+
+  void _reload() {
+    setState(() => _future = widget.api.jobs());
+  }
+
   Future<void> _doRefresh() async {
     final f = widget.api.jobs();
     if (mounted) setState(() => _future = f);
@@ -91,11 +100,37 @@ class _JobsScreenState extends State<JobsScreen> {
           return const Center(child: CircularProgressIndicator(color: AppColors.info));
         }
         if (snapshot.hasError) {
+          final errMsg = snapshot.error.toString();
+          final isAuthError = errMsg.toLowerCase().contains('authentication') ||
+              errMsg.toLowerCase().contains('unauthorized') ||
+              errMsg.toLowerCase().contains('401');
           return Center(
             child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(snapshot.error.toString(),
-                  style: const TextStyle(color: AppColors.textLight)),
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isAuthError ? AppColors.warning.withValues(alpha: .1) : AppColors.danger.withValues(alpha: .1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isAuthError ? AppColors.warning : AppColors.danger, width: 2),
+                  ),
+                  child: Icon(isAuthError ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
+                      color: isAuthError ? AppColors.warning : AppColors.danger, size: 40),
+                ),
+                const SizedBox(height: 20),
+                Text(isAuthError ? 'Session Expired' : 'Could Not Load Jobs',
+                    style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(isAuthError ? 'Your session has expired. Please sign in again.' : 'Unable to load data. Please try again.',
+                    style: const TextStyle(color: AppColors.textLight, fontSize: 13), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                SizedBox(width: double.infinity,
+                  child: isAuthError
+                      ? FilledButton.icon(onPressed: _handleAuthError, icon: const Icon(Icons.login_rounded), label: const Text('Sign In Again'))
+                      : OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh_rounded), label: const Text('Try Again')),
+                ),
+              ]),
             ),
           );
         }

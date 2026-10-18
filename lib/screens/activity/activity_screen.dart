@@ -119,7 +119,6 @@ class _ActivityScreenState extends State<ActivityScreen>
               final errMsg = snap.error.toString();
               final isAuthError = errMsg.toLowerCase().contains('authentication') ||
                   errMsg.toLowerCase().contains('unauthorized') ||
-                  errMsg.toLowerCase().contains('token') ||
                   errMsg.toLowerCase().contains('401');
               return Center(
                 child: Padding(

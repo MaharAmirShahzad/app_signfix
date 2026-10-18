@@ -29,6 +29,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _future = widget.api.getProfile();
   }
 
+  void _handleAuthError() async {
+    await widget.api.logout();
+    if (mounted) widget.onLogout();
+  }
+
+  void _reload() {
+    setState(() => _future = widget.api.getProfile());
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -150,8 +159,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return const Center(child: CircularProgressIndicator(color: AppColors.info));
         }
         if (snap.hasError) {
-          return Center(child: Text(snap.error.toString(),
-              style: const TextStyle(color: AppColors.textLight)));
+          final errMsg = snap.error.toString();
+          final isAuthError = errMsg.toLowerCase().contains('authentication') ||
+              errMsg.toLowerCase().contains('unauthorized') ||
+              errMsg.toLowerCase().contains('401');
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isAuthError ? AppColors.warning.withValues(alpha: .1) : AppColors.danger.withValues(alpha: .1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isAuthError ? AppColors.warning : AppColors.danger, width: 2),
+                  ),
+                  child: Icon(isAuthError ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
+                      color: isAuthError ? AppColors.warning : AppColors.danger, size: 40),
+                ),
+                const SizedBox(height: 20),
+                Text(isAuthError ? 'Session Expired' : 'Could Not Load Profile',
+                    style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(isAuthError ? 'Your session has expired. Please sign in again.' : 'Unable to load data. Please try again.',
+                    style: const TextStyle(color: AppColors.textLight, fontSize: 13), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                SizedBox(width: double.infinity,
+                  child: isAuthError
+                      ? FilledButton.icon(onPressed: _handleAuthError, icon: const Icon(Icons.login_rounded), label: const Text('Sign In Again'))
+                      : OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh_rounded), label: const Text('Try Again')),
+                ),
+              ]),
+            ),
+          );
         }
         final p      = snap.data!;
         final skills = List<String>.from(p['skills'] as List? ?? []);

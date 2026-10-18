@@ -217,9 +217,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: CircularProgressIndicator(color: AppColors.gold));
             }
             if (snap.hasError) {
+              final errMsg = snap.error.toString();
+              final isAuthError = errMsg.toLowerCase().contains('authentication') ||
+                  errMsg.toLowerCase().contains('unauthorized') ||
+                  errMsg.toLowerCase().contains('401');
               return Center(
-                  child: Text(snap.error.toString(),
-                      style: const TextStyle(color: AppColors.textLight)));
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isAuthError
+                            ? AppColors.warning.withValues(alpha: .1)
+                            : AppColors.danger.withValues(alpha: .1),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isAuthError ? AppColors.warning : AppColors.danger,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        isAuthError ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
+                        color: isAuthError ? AppColors.warning : AppColors.danger,
+                        size: 40,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      isAuthError ? 'Session Expired' : 'Could Not Load Profile',
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isAuthError
+                          ? 'Your session has expired. Please sign in again to continue.'
+                          : 'Unable to load your profile. Please try again.',
+                      style: const TextStyle(color: AppColors.textLight, fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    if (isAuthError)
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () async {
+                            await widget.api.logout();
+                            widget.onLogout();
+                          },
+                          icon: const Icon(Icons.login_rounded),
+                          label: const Text('Sign In Again'),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => setState(() => _future = widget.api.getProfile()),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Try Again'),
+                        ),
+                      ),
+                  ]),
+                ),
+              );
             }
             final p = snap.data!;
             return ListView(

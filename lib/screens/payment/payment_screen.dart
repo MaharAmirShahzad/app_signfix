@@ -241,9 +241,98 @@ class _PaymentScreenState extends State<PaymentScreen> {
     unawaited(_reportFailure(resp));
   }
 
+  // ── Map Razorpay error codes to user-friendly messages ───────────────────
+  String _friendlyError(PaymentFailureResponse resp) {
+    final code = resp.code ?? 0;
+    final raw  = (resp.message ?? '').toLowerCase();
+
+    // User cancelled
+    if (code == Razorpay.PAYMENT_CANCELLED ||
+        raw.contains('cancel') || raw.contains('dismiss')) {
+      return 'You cancelled the payment. You can try again whenever you\'re ready.';
+    }
+
+    // Network / connectivity
+    if (code == Razorpay.NETWORK_ERROR ||
+        raw.contains('network') || raw.contains('internet') ||
+        raw.contains('connect') || raw.contains('timeout')) {
+      return 'Unable to connect to the payment service. Please check your internet connection and try again.';
+    }
+
+    // UPI specific
+    if (raw.contains('upi') || raw.contains('vpa') || raw.contains('upi id')) {
+      if (raw.contains('invalid') || raw.contains('incorrect')) {
+        return 'The UPI ID is invalid. Please check your details and try again.';
+      }
+      if (raw.contains('declined') || raw.contains('rejected')) {
+        return 'Your UPI payment was declined. Please try another UPI app or payment method.';
+      }
+      if (raw.contains('expired') || raw.contains('timeout')) {
+        return 'The UPI payment request expired. Please try again.';
+      }
+    }
+
+    // Insufficient funds
+    if (raw.contains('insufficient') || raw.contains('low balance') ||
+        raw.contains('not enough')) {
+      return 'Your account has insufficient funds. Please use another payment method.';
+    }
+
+    // Card declined
+    if (raw.contains('declined') || raw.contains('do not honour') ||
+        raw.contains('card blocked') || raw.contains('restricted')) {
+      return 'Your payment was declined by the bank. Please try another payment method.';
+    }
+
+    // Invalid card details
+    if (raw.contains('invalid card') || raw.contains('card number') ||
+        raw.contains('expiry') || raw.contains('cvv')) {
+      return 'Your card details are invalid. Please check and try again.';
+    }
+
+    // Bank server unavailable
+    if (raw.contains('bank') && (raw.contains('unavailable') ||
+        raw.contains('down') || raw.contains('error'))) {
+      return 'Your bank\'s payment service is temporarily unavailable. Please try again later or use another method.';
+    }
+
+    // 3D Secure / OTP failure
+    if (raw.contains('otp') || raw.contains('3d secure') ||
+        raw.contains('authentication')) {
+      return 'Payment authentication failed. Please check the OTP and try again.';
+    }
+
+    // Gateway timeout
+    if (raw.contains('timeout') || raw.contains('timed out') ||
+        raw.contains('gateway')) {
+      return 'The payment gateway timed out. Please check your payment status before trying again.';
+    }
+
+    // Duplicate / already paid
+    if (raw.contains('duplicate') || raw.contains('already paid')) {
+      return 'This payment may have already been processed. Please check your order status before trying again.';
+    }
+
+    // Razorpay error codes (numeric)
+    if (code == 0 && raw.isEmpty) {
+      return 'Payment could not be completed. Please try again.';
+    }
+
+    // Fallback — clean up raw message if available
+    final cleanMsg = resp.message?.replaceAll(RegExp(r'Exception:?\s*'), '')
+        .replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
+    if (cleanMsg.isNotEmpty && cleanMsg.length < 120) {
+      return cleanMsg;
+    }
+
+    return 'Payment could not be completed. Please try a different payment method or contact support.';
+  }
+
   Future<void> _reportFailure(PaymentFailureResponse resp) async {
     final paymentIntentId = _paymentIntentId;
-    var message = resp.message ?? 'Payment failed. Please try again.';
+    // Get user-friendly message first
+    final message = _friendlyError(resp);
+
     if (paymentIntentId != null) {
       try {
         await widget.api.reportPaymentFailure(paymentIntentId, {
@@ -252,8 +341,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'source': 'razorpay',
           'step': 'checkout',
         });
-      } catch (e) {
-        message = '$message SignFix could not update the payment status: $e';
+      } catch (_) {
+        // Silent — don't override the user-friendly message with a backend error
       }
     }
     if (!mounted) return;
