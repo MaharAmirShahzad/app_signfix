@@ -506,6 +506,16 @@ class TechnicianApi {
     if (r.statusCode < 200 || r.statusCode >= 300) {
       final m = d is Map ? (d['error'] ?? d['message']) : null;
       String errorMsg = m?.toString() ?? 'Request failed (${r.statusCode}).';
+      // Auto-clear token on 401
+      if (r.statusCode == 401) {
+        _token = null;
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.remove('technician_token');
+          prefs.remove('tech_name');
+          prefs.remove('tech_photo');
+        });
+        throw const ApiException('Authentication required', statusCode: 401);
+      }
       if (d is Map && d['details'] != null) {
         final details = d['details'];
         if (details is Map && details.isNotEmpty) {

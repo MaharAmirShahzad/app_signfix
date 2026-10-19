@@ -680,6 +680,19 @@ class ApiClient {
           decoded is Map ? decoded['error'] ?? decoded['message'] : null;
       String errorMsg = message?.toString() ??
           'Request failed (${response.statusCode}).';
+      // Auto-clear token on 401 so next request forces re-login
+      if (response.statusCode == 401) {
+        _token = null;
+        _userEmail = null;
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.remove('token');
+          prefs.remove('userEmail');
+        });
+        throw const ApiException(
+          'Authentication required',
+          statusCode: 401,
+        );
+      }
       // Show validation field errors if present
       if (decoded is Map && decoded['details'] != null) {
         final details = decoded['details'];
