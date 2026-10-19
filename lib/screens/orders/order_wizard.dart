@@ -1129,6 +1129,7 @@ class _OrderWizardState extends State<OrderWizard> {
               'productCost',
               'materialCost',
               'lightingCost',
+              'wattCost',
               'installation',
               'transportation',
               'gst',
