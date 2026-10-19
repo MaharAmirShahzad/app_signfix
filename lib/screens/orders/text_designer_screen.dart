@@ -12,10 +12,12 @@ class SignBoardTextDesign {
     required this.text,
     required this.fontFamily,
     required this.color,
+    this.fontSize = 32,
   });
   final String text;
   final String fontFamily;
   final Color  color;
+  final double fontSize;
 }
 
 class TextDesignerScreen extends StatefulWidget {
@@ -32,6 +34,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
   final _ctrl = TextEditingController();
   String _font  = 'Pacifico';
   Color  _color = const Color(0xFFFF4DA6); // neon pink default
+  double _fontSize = 32; // font size slider
 
   // ── Available fonts ───────────────────────────────────────────────────────
   static const _fonts = [
@@ -94,6 +97,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
       _ctrl.text = widget.initial!.text;
       _font      = widget.initial!.fontFamily;
       _color     = widget.initial!.color;
+      _fontSize  = widget.initial!.fontSize;
     }
     _glowCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1400))
@@ -139,7 +143,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
       return;
     }
     Navigator.pop(context,
-        SignBoardTextDesign(text: text, fontFamily: _font, color: _color));
+        SignBoardTextDesign(text: text, fontFamily: _font, color: _color, fontSize: _fontSize));
   }
 
   @override
@@ -212,7 +216,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
                     child: Center(
                       child: Text(
                         previewText,
-                        style: _buildStyle(32, _color).copyWith(
+                        style: _buildStyle(_fontSize, _color).copyWith(
                           shadows: [
                             Shadow(color: _color.withValues(alpha: .9), blurRadius: _glow.value),
                             Shadow(color: _color.withValues(alpha: .6), blurRadius: _glow.value * 2),
@@ -227,6 +231,48 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // ── Font Size Slider ─────────────────────────────────────────
+                Row(children: [
+                  const Text('Text Size',
+                      style: TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _color.withValues(alpha: .15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _color.withValues(alpha: .4)),
+                    ),
+                    child: Text(
+                      '${_fontSize.round()}px',
+                      style: TextStyle(color: _color, fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Icon(Icons.text_fields, size: 16, color: AppColors.textMuted),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: _color,
+                        inactiveTrackColor: AppColors.navyLight,
+                        thumbColor: _color,
+                        overlayColor: _color.withValues(alpha: .2),
+                        trackHeight: 4,
+                      ),
+                      child: Slider(
+                        value: _fontSize,
+                        min: 14,
+                        max: 64,
+                        divisions: 25,
+                        onChanged: (v) => setState(() => _fontSize = v),
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.text_fields, size: 24, color: AppColors.textMuted),
+                ]),
 
                 // ── Pick Font ────────────────────────────────────────────────
                 const Text('Pick Your Font',

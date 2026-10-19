@@ -81,11 +81,12 @@ class _OrderWizardState extends State<OrderWizard> {
   void _onAddressChanged(String value) {
     _debounce?.cancel();
     if (value.trim().length < 3) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _suggestions = [];
           _showSuggestions = false;
         });
+      }
       return;
     }
     _debounce = Timer(
