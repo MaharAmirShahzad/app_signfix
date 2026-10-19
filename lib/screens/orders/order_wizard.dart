@@ -189,6 +189,18 @@ class _OrderWizardState extends State<OrderWizard> {
     _addressFocus.unfocus();
   }
 
+  // Map new sign types to existing backend product names
+  // New types (Module/Channel/Bata) map to 'LED Sign Board' in DB
+  // until admin adds them to the products catalog
+  String get _backendProductName {
+    const mapping = {
+      'Module LED Letters':   'LED Sign Board',
+      'Channel LED Letters':  'LED Sign Board',
+      'Bata Type LED Letters':'LED Sign Board',
+    };
+    return mapping[type] ?? type;
+  }
+
   Future<void> _calculate() async {
     final l = double.tryParse(length.text);
     final w = double.tryParse(width.text);
@@ -204,7 +216,7 @@ class _OrderWizardState extends State<OrderWizard> {
     setState(() => loading = true);
     try {
       quote = await widget.api.calculate({
-        'product': type,
+        'product': _backendProductName,
         'length': l,
         'width': w,
         'quantity': q,
@@ -229,7 +241,7 @@ class _OrderWizardState extends State<OrderWizard> {
     setState(() => loading = true);
     try {
       final order = await widget.api.createOrder({
-        'product': type,
+        'product': _backendProductName,
         'length': double.parse(length.text),
         'width': double.parse(width.text),
         'quantity': int.parse(quantity.text),
