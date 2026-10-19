@@ -44,6 +44,8 @@ class _OrderWizardState extends State<OrderWizard> {
   bool   _payPending     = false;
   bool   _paySuccess     = false;
   String _payMethod      = 'upi';
+  String _ledWatt = '10W';
+  String? _sideWalling;
   final  _upiController  = TextEditingController();
   String? _upiError;
   Map<String, dynamic>? _customerProfile;
@@ -64,6 +66,9 @@ class _OrderWizardState extends State<OrderWizard> {
     'Backlit Sign',
     'Outdoor Signage',
     'Custom Sign Board',
+    'Module LED Letters',
+    'Channel LED Letters',
+    'Bata Type LED Letters',
   ];
   static const _materials = [
     'Acrylic',
@@ -80,6 +85,9 @@ class _OrderWizardState extends State<OrderWizard> {
     'Neon',
     'Front Lit',
     'Custom'
+  ];
+  static const _wattOptions = [
+    '5W', '10W', '12W', '15W', '18W', '20W', '24W', '30W', '40W', '50W'
   ];
 
   @override
@@ -182,6 +190,7 @@ class _OrderWizardState extends State<OrderWizard> {
         'lighting': lighting,
         'installation': installation,
         'transportation': transportation,
+        'ledWatt': _ledWatt,
         if (_textDesign != null) 'signText': _textDesign!.text,
         if (_textDesign != null) 'signFont': _textDesign!.fontFamily,
       });
@@ -208,6 +217,8 @@ class _OrderWizardState extends State<OrderWizard> {
         'transportation': transportation,
         'address': address.text.trim(),
         'estimatedPrice': quote!['estimatedPrice'],
+        'ledWatt': _ledWatt,
+        if (_sideWalling != null) 'sideWalling': _sideWalling!,
         if (_textDesign != null) 'signText': _textDesign!.text,
         if (_textDesign != null) 'signFont': _textDesign!.fontFamily,
         if (_textDesign != null)
@@ -262,6 +273,8 @@ class _OrderWizardState extends State<OrderWizard> {
         _upiController.clear();
         _upiError      = null;
         _customerProfile = null;
+        _ledWatt = '10W';
+        _sideWalling = null;
       });
 
   // ── Payment methods ──────────────────────────────────────────────────────
@@ -297,7 +310,7 @@ class _OrderWizardState extends State<OrderWizard> {
 
       final intent = await widget.api.createPaymentIntent({
         'quotationNo': 'PENDING',
-        'type': 'order',
+        'type': 'full',
         'amount': estimatedPrice,
         'idempotencyKey':
             '${DateTime.now().microsecondsSinceEpoch}-'
@@ -803,10 +816,40 @@ class _OrderWizardState extends State<OrderWizard> {
                     selected: type == x,
                     selectedColor: AppColors.gold.withValues(alpha: .2),
                     checkmarkColor: AppColors.gold,
-                    onSelected: (_) => setState(() => type = x),
+                    onSelected: (_) => setState(() {
+                      type = x;
+                      _sideWalling = null;
+                    }),
                   ))
               .toList(),
         ),
+        if ((['Module LED Letters', 'Channel LED Letters', 'Bata Type LED Letters'].contains(type))) ...[
+          const SizedBox(height: 16),
+          const Text(
+            'Side Walling Color',
+            style: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Builder(builder: (context) {
+            final options = switch (type) {
+              'Module LED Letters'    => const ['Black', 'Grey'],
+              'Channel LED Letters'   => const ['Gold', 'Silver', 'White', 'Black', 'Blue', 'Red'],
+              'Bata Type LED Letters' => const ['Gold', 'Rose Gold', 'Silver'],
+              _                       => const <String>[],
+            };
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: options.map((opt) => ChoiceChip(
+                label: Text(opt),
+                selected: _sideWalling == opt,
+                selectedColor: AppColors.gold.withValues(alpha: .2),
+                checkmarkColor: AppColors.gold,
+                onSelected: (_) => setState(() => _sideWalling = opt),
+              )).toList(),
+            );
+          }),
+        ],
       ];
 
   // ── Step 2: Dimensions ────────────────────────────────────────────────────
@@ -994,6 +1037,61 @@ class _OrderWizardState extends State<OrderWizard> {
           onChanged: (v) => setState(() => lighting = v!),
         ),
         const SizedBox(height: 12),
+        if (lighting != 'No Lighting') ...[
+          const SizedBox(height: 12),
+          const Text(
+            'LED Watt per Square Foot',
+            style: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 38,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: _wattOptions.map((w) {
+                final selected = _ledWatt == w;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(w),
+                    selected: selected,
+                    selectedColor: AppColors.gold.withValues(alpha: .2),
+                    checkmarkColor: AppColors.gold,
+                    onSelected: (_) => setState(() => _ledWatt = w),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Builder(builder: (context) {
+            final wattValue = double.tryParse(
+                    _ledWatt.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 10.0;
+            final l = double.tryParse(length.text) ?? 0;
+            final ww = double.tryParse(width.text) ?? 0;
+            final q = int.tryParse(quantity.text) ?? 1;
+            final totalWatts = wattValue * l * ww * q;
+            final monthlyCost = (totalWatts * 8 * 30 * 6.5 / 1000).round();
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.navyDark,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.gold.withValues(alpha: .3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.bolt_rounded, color: AppColors.gold, size: 16),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Estimated power: ~${totalWatts.toStringAsFixed(0)}W  |  Monthly cost: ~₹$monthlyCost',
+                    style: const TextStyle(color: AppColors.textLight, fontSize: 12),
+                  ),
+                ),
+              ]),
+            );
+          }),
+        ],
         Material(
           color: AppColors.navyDark,
           borderRadius: BorderRadius.circular(14),
