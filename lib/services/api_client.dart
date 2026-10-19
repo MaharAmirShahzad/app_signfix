@@ -568,8 +568,25 @@ class ApiClient {
 
   // ΓöÇΓöÇ Payments ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   Future<Map<String, dynamic>> createPaymentIntent(
-          Map<String, dynamic> data) =>
-      _request('POST', '/customer/payments/intents', body: data);
+      Map<String, dynamic> data) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      final mockIntentId = 'pi_mock_${DateTime.now().millisecondsSinceEpoch}';
+      return {
+        'id': mockIntentId,
+        'checkout': {
+          'keyId': const String.fromEnvironment(
+              'RAZORPAY_KEY', defaultValue: 'rzp_live_TZRwgnPCEkDeu4'),
+          'orderId': 'order_mock_${DateTime.now().millisecondsSinceEpoch}',
+          'amount': ((data['amount'] as num?)?.toDouble() ?? 0) * 100, // paise
+          'currency': 'INR',
+          'name': 'SignFix',
+          'description': 'Order payment',
+        },
+      };
+    }
+    return _request('POST', '/customer/payments/intents', body: data);
+  }
 
   Future<Map<String, dynamic>> verifyPayment(
           String paymentId, Map<String, dynamic> data) =>
