@@ -3,10 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Sign Board Text Designer — APK style
-//  Type text → pick font → pick color → live neon preview
+//  SignBoardTextDesign — data model returned when user taps "Continue"
 // ─────────────────────────────────────────────────────────────────────────────
-
 class SignBoardTextDesign {
   const SignBoardTextDesign({
     required this.text,
@@ -20,6 +18,11 @@ class SignBoardTextDesign {
   final double fontSize;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  TextDesignerScreen
+//  Type text → pick font → pick color → adjust size → live neon preview
+//  Acrylic Backing Size Calculator shown below preview (real-time)
+// ─────────────────────────────────────────────────────────────────────────────
 class TextDesignerScreen extends StatefulWidget {
   const TextDesignerScreen({super.key, this.initial});
   final SignBoardTextDesign? initial;
@@ -32,9 +35,10 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
     with SingleTickerProviderStateMixin {
 
   final _ctrl = TextEditingController();
-  String _font  = 'Pacifico';
-  Color  _color = const Color(0xFFFF4DA6); // neon pink default
-  double _fontSize = 32; // font size slider
+  String _font     = 'Pacifico';
+  Color  _color    = const Color(0xFFFF4DA6); // neon pink default
+  double _fontSize = 32;
+  bool   _showMore = false;
 
   // ── Available fonts ───────────────────────────────────────────────────────
   static const _fonts = [
@@ -52,7 +56,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
     'Lobster',
   ];
 
-  // ── Preset colors ─────────────────────────────────────────────────────────
+  // ── Neon preview colors (hex allowed — these are sign board colors, not UI)
   static const _presetColors = [
     Color(0xFFFF4DA6), // neon pink
     Color(0xFF00E5FF), // cyan
@@ -68,27 +72,24 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
     Color(0xFFFF6D00), // deep orange
   ];
 
-  // ── Custom colors (more shades) ───────────────────────────────────────────
   static const _customColors = [
-    Color(0xFFE91E63), // pink
-    Color(0xFF9C27B0), // purple
-    Color(0xFF3F51B5), // indigo
-    Color(0xFF2196F3), // blue
-    Color(0xFF009688), // teal
-    Color(0xFF4CAF50), // green
-    Color(0xFFFF9800), // orange
-    Color(0xFF795548), // brown
-    Color(0xFF607D8B), // blue grey
-    Color(0xFF000000), // black
-    Color(0xFF9E9E9E), // grey
-    Color(0xFFF5F5F5), // white smoke
+    Color(0xFFE91E63),
+    Color(0xFF9C27B0),
+    Color(0xFF3F51B5),
+    Color(0xFF2196F3),
+    Color(0xFF009688),
+    Color(0xFF4CAF50),
+    Color(0xFFFF9800),
+    Color(0xFF795548),
+    Color(0xFF607D8B),
+    Color(0xFF000000),
+    Color(0xFF9E9E9E),
+    Color(0xFFF5F5F5),
   ];
-
-  bool _showMore = false;
 
   // ── Glow animation ────────────────────────────────────────────────────────
   late final AnimationController _glowCtrl;
-  late final Animation<double> _glow;
+  late final Animation<double>   _glow;
 
   @override
   void initState() {
@@ -113,6 +114,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
     super.dispose();
   }
 
+  // Build Google Font style for preview
   TextStyle _buildStyle(double size, Color color) {
     try {
       switch (_font) {
@@ -139,7 +141,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
     final text = _ctrl.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please type your sign board text.')));
+          const SnackBar(content: Text('Please type your sign board text.')));
       return;
     }
     Navigator.pop(context,
@@ -149,9 +151,7 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
   @override
   Widget build(BuildContext context) {
     final previewText = _ctrl.text.isEmpty ? 'YOUR TEXT HERE' : _ctrl.text;
-    final allColors = _showMore
-        ? [..._presetColors, ..._customColors]
-        : _presetColors;
+    final allColors   = _showMore ? [..._presetColors, ..._customColors] : _presetColors;
 
     return Scaffold(
       backgroundColor: AppColors.navyDeep,
@@ -164,356 +164,384 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
         title: const Text('Design Your Sign',
             style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800)),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(18),
-              children: [
+      body: Column(children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
 
-                const Text('Type your text, pick a font & color.',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                const SizedBox(height: 16),
+              const Text('Type your text, pick a font & color.',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+              const SizedBox(height: 16),
 
-                // ── Text input ───────────────────────────────────────────────
-                TextField(
-                  controller: _ctrl,
-                  maxLength: 24,
-                  style: const TextStyle(color: AppColors.white, fontSize: 16),
-                  textCapitalization: TextCapitalization.characters,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: 'Type your text',
-                    counterStyle: const TextStyle(color: AppColors.textMuted),
-                    suffixIcon: _ctrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, color: AppColors.textMuted),
-                            onPressed: () => setState(() => _ctrl.clear()),
-                          )
-                        : null,
-                  ),
+              // ── Text input (maxLength = 35 per requirements) ──────────────
+              TextField(
+                controller: _ctrl,
+                maxLength: 35,               // MUST be 35 — allows testing 21+ logic
+                style: const TextStyle(color: AppColors.white, fontSize: 16),
+                textCapitalization: TextCapitalization.characters,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'Type your text',
+                  counterStyle: const TextStyle(color: AppColors.textMuted),
+                  suffixIcon: _ctrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, color: AppColors.textMuted),
+                          onPressed: () => setState(() => _ctrl.clear()),
+                        )
+                      : null,
                 ),
-                const SizedBox(height: 16),
+              ),
+              const SizedBox(height: 16),
 
-                // ── Live Neon Preview ────────────────────────────────────────
-                AnimatedBuilder(
-                  animation: _glow,
-                  builder: (_, __) => Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF050A1A),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _color.withValues(alpha: .3)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _color.withValues(alpha: .15),
-                          blurRadius: _glow.value * 2,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        previewText,
-                        style: _buildStyle(_fontSize, _color).copyWith(
-                          shadows: [
-                            Shadow(color: _color.withValues(alpha: .9), blurRadius: _glow.value),
-                            Shadow(color: _color.withValues(alpha: .6), blurRadius: _glow.value * 2),
-                            Shadow(color: _color.withValues(alpha: .3), blurRadius: _glow.value * 4),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+              // ── Live Neon Preview (pulsing glow animation) ────────────────
+              AnimatedBuilder(
+                animation: _glow,
+                builder: (_, __) => Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF050A1A), // sign board dark bg — preview only
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _color.withValues(alpha: .3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _color.withValues(alpha: .15),
+                        blurRadius: _glow.value * 2,
+                        spreadRadius: 1,
                       ),
-                    ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // ── Font Size Slider ─────────────────────────────────────────
-                Row(children: [
-                  const Text('Text Size',
-                      style: TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w800)),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _color.withValues(alpha: .15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _color.withValues(alpha: .4)),
-                    ),
+                  child: Center(
                     child: Text(
-                      '${_fontSize.round()}px',
-                      style: TextStyle(color: _color, fontWeight: FontWeight.w700, fontSize: 13),
+                      previewText,
+                      style: _buildStyle(_fontSize, _color).copyWith(
+                        shadows: [
+                          Shadow(color: _color.withValues(alpha: .9), blurRadius: _glow.value),
+                          Shadow(color: _color.withValues(alpha: .6), blurRadius: _glow.value * 2),
+                          Shadow(color: _color.withValues(alpha: .3), blurRadius: _glow.value * 4),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ]),
-                const SizedBox(height: 8),
-                Row(children: [
-                  const Icon(Icons.text_fields, size: 16, color: AppColors.textMuted),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: _color,
-                        inactiveTrackColor: AppColors.navyLight,
-                        thumbColor: _color,
-                        overlayColor: _color.withValues(alpha: .2),
-                        trackHeight: 4,
-                      ),
-                      child: Slider(
-                        value: _fontSize,
-                        min: 14,
-                        max: 64,
-                        divisions: 25,
-                        onChanged: (v) => setState(() => _fontSize = v),
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.text_fields, size: 24, color: AppColors.textMuted),
-                ]),
+                ),
+              ),
+              const SizedBox(height: 24),
 
-                // ── Pick Font ────────────────────────────────────────────────
-                const Text('Pick Your Font',
-                    style: TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 12),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 2.8,
+              // ── Font Size Slider (14 → 64) ────────────────────────────────
+              Row(children: [
+                const Text('Text Size',
+                    style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _color.withValues(alpha: .15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _color.withValues(alpha: .4)),
                   ),
-                  itemCount: _fonts.length,
-                  itemBuilder: (_, i) {
-                    final f = _fonts[i];
-                    final selected = _font == f;
+                  child: Text(
+                    '${_fontSize.round()}px',
+                    style: TextStyle(
+                        color: _color,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                const Icon(Icons.text_fields, size: 16, color: AppColors.textMuted),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: AppColors.gold,   // AppColors — no raw hex
+                      inactiveTrackColor: AppColors.navyLight,
+                      thumbColor: AppColors.gold,
+                      overlayColor: AppColors.gold.withValues(alpha: .2),
+                      trackHeight: 4,
+                    ),
+                    child: Slider(
+                      value: _fontSize,
+                      min: 14,
+                      max: 64,
+                      divisions: 25,
+                      onChanged: (v) => setState(() => _fontSize = v),
+                    ),
+                  ),
+                ),
+                const Icon(Icons.text_fields, size: 24, color: AppColors.textMuted),
+              ]),
+              const SizedBox(height: 24),
+
+              // ── Pick Font ─────────────────────────────────────────────────
+              const Text('Pick Your Font',
+                  style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 12),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 2.8,
+                ),
+                itemCount: _fonts.length,
+                itemBuilder: (_, i) {
+                  final f        = _fonts[i];
+                  final selected = _font == f;
+                  return GestureDetector(
+                    onTap: () => setState(() => _font = f),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected ? AppColors.navyMid : AppColors.navyDark,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: selected ? _color : AppColors.navyLight,
+                          width: selected ? 2 : 1,
+                        ),
+                        boxShadow: selected
+                            ? [BoxShadow(
+                                color: _color.withValues(alpha: .2),
+                                blurRadius: 8)]
+                            : [],
+                      ),
+                      child: Center(
+                        child: Text(
+                          f.length > 13 ? '${f.substring(0, 12)}…' : f,
+                          style: _buildStyle(
+                              15, selected ? _color : AppColors.textLight),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // ── Pick Color ────────────────────────────────────────────────
+              const Text('Pick a Color',
+                  style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  ...allColors.map((c) {
+                    final selected = _color.toARGB32() == c.toARGB32();
                     return GestureDetector(
-                      onTap: () => setState(() => _font = f),
+                      onTap: () => setState(() => _color = c),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: selected ? AppColors.navyMid : AppColors.navyDark,
-                          borderRadius: BorderRadius.circular(12),
+                          color: c,
+                          shape: BoxShape.circle,
                           border: Border.all(
-                            color: selected ? _color : AppColors.navyLight,
-                            width: selected ? 2 : 1,
+                            color: selected
+                                ? AppColors.white
+                                : Colors.transparent,
+                            width: 3,
                           ),
-                          boxShadow: selected ? [
-                            BoxShadow(color: _color.withValues(alpha: .2), blurRadius: 8)
-                          ] : [],
+                          boxShadow: [
+                            BoxShadow(
+                              color: c.withValues(
+                                  alpha: selected ? .6 : .25),
+                              blurRadius: selected ? 14 : 4,
+                            ),
+                          ],
                         ),
-                        child: Center(
-                          child: Text(
-                            f.length > 13 ? '${f.substring(0, 12)}…' : f,
-                            style: _buildStyle(15, selected ? _color : AppColors.textLight),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                        child: selected
+                            ? const Icon(Icons.check_rounded,
+                                color: Colors.white, size: 20)
+                            : null,
                       ),
                     );
-                  },
-                ),
-                const SizedBox(height: 24),
+                  }),
+                  // Show more / less toggle
+                  GestureDetector(
+                    onTap: () => setState(() => _showMore = !_showMore),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.navyMid,
+                        border: Border.all(color: AppColors.navyLight),
+                      ),
+                      child: Icon(
+                        _showMore
+                            ? Icons.expand_less_rounded
+                            : Icons.expand_more_rounded,
+                        color: AppColors.textLight,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _showMore ? 'Tap ↑ to show fewer' : 'Tap + for more colors',
+                style: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 11),
+              ),
+              const SizedBox(height: 30),
 
-                // ── Pick Color ───────────────────────────────────────────────
-                const Text('Pick a Color',
-                    style: TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+              // ── Acrylic Backing Size Calculator ──────────────────────────
+              _AcrylicSizeCard(text: _ctrl.text),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+
+        // ── Continue button ───────────────────────────────────────────────
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+            child: GestureDetector(
+              onTap: _done,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.gold,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.gold.withValues(alpha: .4),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ...allColors.map((c) {
-                      final selected = _color.toARGB32() == c.toARGB32();
-                      return GestureDetector(
-                        onTap: () => setState(() => _color = c),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          width: 44, height: 44,
-                          decoration: BoxDecoration(
-                            color: c,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: selected ? Colors.white : Colors.transparent,
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: c.withValues(alpha: selected ? .6 : .25),
-                                blurRadius: selected ? 14 : 4,
-                              ),
-                            ],
-                          ),
-                          child: selected
-                              ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
-                              : null,
-                        ),
-                      );
-                    }),
-                    // More colors toggle
-                    GestureDetector(
-                      onTap: () => setState(() => _showMore = !_showMore),
-                      child: Container(
-                        width: 44, height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.navyMid,
-                          border: Border.all(color: AppColors.navyLight),
-                        ),
-                        child: Icon(
-                          _showMore ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                          color: AppColors.textLight, size: 22,
-                        ),
+                    Text(
+                      '→  Continue',
+                      style: TextStyle(
+                        color: AppColors.navyDeep,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  _showMore ? 'Tap ↑ to show fewer' : 'Tap + for more colors',
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                ),
-                const SizedBox(height: 30),
-
-                // ── Acrylic Backing Size Calculator ─────────────────────
-                _AcrylicSizeCard(text: _ctrl.text),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-
-          // ── Continue button ──────────────────────────────────────────────
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
-              child: GestureDetector(
-                onTap: _done,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: AppColors.gold,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.gold.withValues(alpha: .4),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text('→  Continue',
-                        style: TextStyle(
-                          color: AppColors.navyDeep,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        )),
-                  ]),
-                ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 }
 
-
-// ── Acrylic Backing Size Calculator ──────────────────────────────────────────
-// Automatically calculates recommended acrylic board size based on text length.
-// Matches Neon Adda style: dark theme, neon glow, real-time update.
-
+// ─────────────────────────────────────────────────────────────────────────────
+//  _AcrylicSize — immutable data model for one board size tier
+// ─────────────────────────────────────────────────────────────────────────────
 class _AcrylicSize {
   const _AcrylicSize({
-    required this.label,      // e.g. "2 × 1 ft"
-    required this.sqft,       // e.g. 2.0
-    required this.width,      // e.g. 2
-    required this.height,     // e.g. 1
-    this.isCustom = false,    // true for 21+ chars
+    required this.label,    // display string e.g. "3 × 1 ft"
+    required this.sqft,     // total area in sq ft
+    required this.width,    // board width in ft  (double to support 1.5)
+    required this.height,   // board height in ft (double to support 1.5)
+    this.isCustom = false,
   });
   final String label;
   final double sqft;
-  final int width;
-  final int height;
-  final bool isCustom;
+  final double width;   // double — NOT int (4 × 1.5 needs fractional height)
+  final double height;
+  final bool   isCustom;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  _AcrylicSizeCard
+//  Shown below the neon preview; updates in real-time as user types.
+//  Strictly uses AppColors for all UI (no raw hex in UI layer).
+// ─────────────────────────────────────────────────────────────────────────────
 class _AcrylicSizeCard extends StatelessWidget {
   const _AcrylicSizeCard({required this.text});
   final String text;
 
-  // ── Core business logic ───────────────────────────────────────────────────
-  // Count alphanumeric characters only (ignore spaces & special chars)
-  static int _charCount(String text) =>
-      text.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').length;
+  // ── CORRECT character count: ignore ONLY spaces ───────────────────────────
+  // DO NOT use [^a-zA-Z0-9] — that ignores symbols like '!', '@', '#'.
+  // Formula: remove whitespace, count what's left.
+  static int _charCount(String t) =>
+      t.replaceAll(RegExp(r'\s+'), '').length;
 
-  // Map character count → acrylic size
-  static _AcrylicSize? _calcSize(String text) {
-    final count = _charCount(text.trim());
-    if (count == 0) return null;                              // empty
-    if (count <= 5)  return const _AcrylicSize(label: '1 × 1 ft',   sqft: 1,  width: 1, height: 1);
-    if (count <= 10) return const _AcrylicSize(label: '2 × 1 ft',   sqft: 2,  width: 2, height: 1);
-    if (count <= 15) return const _AcrylicSize(label: '3 × 1 ft',   sqft: 3,  width: 3, height: 1);
-    if (count <= 20) return const _AcrylicSize(label: '4 × 1.5 ft', sqft: 6,  width: 4, height: 2);
-    return const _AcrylicSize(label: '5 × 2 ft', sqft: 10, width: 5, height: 2, isCustom: true);
+  // ── Size mapping (per business rules) ────────────────────────────────────
+  static _AcrylicSize? _calcSize(String t) {
+    final n = _charCount(t);
+    if (n == 0)  return null;
+    if (n <= 5)  return const _AcrylicSize(label: '1 × 1 ft',   sqft: 1,  width: 1,  height: 1);
+    if (n <= 10) return const _AcrylicSize(label: '2 × 1 ft',   sqft: 2,  width: 2,  height: 1);
+    if (n <= 15) return const _AcrylicSize(label: '3 × 1 ft',   sqft: 3,  width: 3,  height: 1);
+    if (n <= 20) return const _AcrylicSize(label: '4 × 1.5 ft', sqft: 6,  width: 4,  height: 1.5);
+    return       const _AcrylicSize(label: '5 × 2 ft',   sqft: 10, width: 5,  height: 2, isCustom: true);
   }
 
-  // ── Pricing ───────────────────────────────────────────────────────────────
-  // Base rate: ₹1,500 per sq ft (change this to your actual rate)
-  static const double _ratePerSqft = 1500;
+  // ── Pricing: ₹1,500 / sq ft ──────────────────────────────────────────────
+  static const double _rate = 1500;
 
-  static String _priceLabel(_AcrylicSize size) {
-    if (size.isCustom) return 'Contact for Quote';
-    final price = (size.sqft * _ratePerSqft).round();
-    return '₹${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+  static String _price(_AcrylicSize s) {
+    if (s.isCustom) return 'Contact for Quote';
+    final p = (s.sqft * _rate).round();
+    // Format with commas e.g. 9,000
+    return '₹${p.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
   }
 
-  // ── Board diagram: proportional box ─────────────────────────────────────
-  Widget _boardDiagram(_AcrylicSize size, Color glowColor) {
-    // Max width 80, height proportional
-    final ratio = size.height / size.width;
-    final boxW = 72.0;
-    final boxH = (boxW * ratio).clamp(18.0, 72.0);
+  // ── Proportional board diagram ────────────────────────────────────────────
+  Widget _diagram(_AcrylicSize s, Color accent) {
+    const maxW = 72.0;
+    final ratio = s.height / s.width;                    // e.g. 1.5/4 = 0.375
+    final h     = (maxW * ratio).clamp(14.0, 72.0);
     return Container(
-      width: boxW,
-      height: boxH,
+      width: maxW, height: h,
       decoration: BoxDecoration(
-        color: glowColor.withValues(alpha: .08),
+        color: accent.withValues(alpha: .08),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: glowColor.withValues(alpha: .6), width: 1.5),
-        boxShadow: [BoxShadow(color: glowColor.withValues(alpha: .25), blurRadius: 8)],
+        border: Border.all(color: accent.withValues(alpha: .6), width: 1.5),
+        boxShadow: [BoxShadow(color: accent.withValues(alpha: .25), blurRadius: 8)],
       ),
       child: Center(
-        child: Text(
-          size.label,
-          style: TextStyle(
-            color: glowColor,
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-          ),
-          textAlign: TextAlign.center,
-        ),
+        child: Text(s.label,
+            style: TextStyle(
+                color: accent, fontSize: 9, fontWeight: FontWeight.w700),
+            textAlign: TextAlign.center),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = _calcSize(text);
-    final count = _charCount(text.trim());
+    final size    = _calcSize(text);
+    final count   = _charCount(text);
     final isEmpty = text.trim().isEmpty;
 
-    // Color per step: gold → goldLight → info → warning → danger
-    final Color glowColor = size == null
+    // Accent color follows progress — all from AppColors
+    final Color accent = size == null
         ? AppColors.textMuted
         : size.isCustom
             ? AppColors.danger
@@ -525,20 +553,17 @@ class _AcrylicSizeCard extends StatelessWidget {
                         ? AppColors.info
                         : AppColors.warning;
 
-    // Progress: which step is active (0-4)
+    // Which step pill is active (0-based)
     final int activeStep = size == null
         ? -1
         : size.isCustom
             ? 4
-            : count <= 5
-                ? 0
-                : count <= 10
-                    ? 1
-                    : count <= 15
-                        ? 2
-                        : 3;
+            : count <= 5  ? 0
+            : count <= 10 ? 1
+            : count <= 15 ? 2
+            : 3;
 
-    final steps = ['1×1', '2×1', '3×1', '4×1.5', '5×2'];
+    const steps = ['1×1', '2×1', '3×1', '4×1.5', '5×2'];
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -547,215 +572,209 @@ class _AcrylicSizeCard extends StatelessWidget {
         color: AppColors.navyDark,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isEmpty ? AppColors.navyLight : glowColor.withValues(alpha: .45),
+          color: isEmpty
+              ? AppColors.navyLight
+              : accent.withValues(alpha: .45),
           width: isEmpty ? 1 : 1.5,
         ),
         boxShadow: isEmpty
-            ? []
-            : [BoxShadow(color: glowColor.withValues(alpha: .12), blurRadius: 14)],
+            ? const []
+            : [BoxShadow(color: accent.withValues(alpha: .12), blurRadius: 14)],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Header ──────────────────────────────────────────────────────
-          Row(children: [
-            Icon(Icons.straighten_rounded,
-                color: isEmpty ? AppColors.textMuted : glowColor, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              'Acrylic Backing Size',
-              style: TextStyle(
-                color: isEmpty ? AppColors.textMuted : AppColors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-              ),
-            ),
-            const Spacer(),
-            if (!isEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: glowColor.withValues(alpha: .15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: glowColor.withValues(alpha: .4)),
-                ),
-                child: Text(
-                  '$count char${count == 1 ? '' : 's'}',
-                  style: TextStyle(
-                      color: glowColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700),
-                ),
-              ),
-          ]),
-          const SizedBox(height: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-          if (isEmpty) ...[
-            // ── Empty state ────────────────────────────────────────────────
-            const Center(
+        // ── Card header ──────────────────────────────────────────────────────
+        Row(children: [
+          Icon(Icons.straighten_rounded,
+              color: isEmpty ? AppColors.textMuted : accent, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            'Acrylic Backing Size',
+            style: TextStyle(
+              color: isEmpty ? AppColors.textMuted : AppColors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
+          const Spacer(),
+          if (!isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: accent.withValues(alpha: .4)),
+              ),
               child: Text(
-                'Enter text above to see recommended size',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                textAlign: TextAlign.center,
+                '$count char${count == 1 ? '' : 's'}',
+                style: TextStyle(
+                    color: accent, fontSize: 10, fontWeight: FontWeight.w700),
               ),
             ),
-          ] else ...[
-            // ── Progress steps ─────────────────────────────────────────────
-            Row(children: List.generate(steps.length, (i) {
-              final isActive = i == activeStep;
-              final isDone = i < activeStep;
-              return Expanded(
-                child: Row(children: [
-                  Expanded(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isDone || isActive ? glowColor : AppColors.navyLight,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  if (i < steps.length - 1) const SizedBox(width: 2),
-                ]),
-              );
-            })),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(steps.length, (i) {
-                final isActive = i == activeStep;
-                return Text(
-                  steps[i],
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w400,
-                    color: isActive ? glowColor : AppColors.textMuted,
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 14),
+        ]),
+        const SizedBox(height: 12),
 
-            // ── Size + Price + Diagram ─────────────────────────────────────
-            Row(children: [
-              // Board diagram
-              _boardDiagram(size!, glowColor),
-              const SizedBox(width: 16),
-              // Size & price info
-              Expanded(
-                child: Column(
+        // ── Empty state ──────────────────────────────────────────────────────
+        if (isEmpty)
+          const Center(
+            child: Text(
+              'Enter text above to see recommended size',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          )
+
+        // ── Active state ─────────────────────────────────────────────────────
+        else ...[
+          // Step progress bars
+          Row(children: List.generate(steps.length, (i) {
+            final active = i == activeStep;
+            final done   = i < activeStep;
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: i < steps.length - 1 ? 2 : 0),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: (done || active) ? accent : AppColors.navyLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            );
+          })),
+          const SizedBox(height: 6),
+          // Step labels
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(steps.length, (i) {
+              final active = i == activeStep;
+              return Text(
+                steps[i],
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w400,
+                  color: active ? accent : AppColors.textMuted,
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 14),
+
+          // Diagram + size info row
+          Row(children: [
+            _diagram(size!, accent),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Recommended Size',
-                      style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 11),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      size.label,
-                      style: TextStyle(
-                        color: glowColor,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        shadows: [
-                          Shadow(
-                              color: glowColor.withValues(alpha: .6),
-                              blurRadius: 10),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(children: [
-                      Icon(Icons.currency_rupee_rounded,
-                          color: AppColors.textLight, size: 13),
-                      const SizedBox(width: 2),
-                      Text(
-                        'Est. Price: ',
-                        style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 12),
-                      ),
-                      Text(
-                        _priceLabel(size),
-                        style: TextStyle(
-                          color: size.isCustom
-                              ? AppColors.warning
-                              : AppColors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ]),
-                    Text(
-                      '${size.sqft.toStringAsFixed(size.sqft == size.sqft.roundToDouble() ? 0 : 1)} sq ft × ₹1,500/sqft',
-                      style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 10),
-                    ),
-                  ],
+                const Text('Recommended Size',
+                    style: TextStyle(
+                        color: AppColors.textMuted, fontSize: 11)),
+                const SizedBox(height: 4),
+                Text(
+                  size.label,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    shadows: [
+                      Shadow(
+                          color: accent.withValues(alpha: .6),
+                          blurRadius: 10),
+                    ],
+                  ),
                 ),
-              ),
-            ]),
-
-            // ── Custom size warning ────────────────────────────────────────
-            if (size.isCustom) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.danger.withValues(alpha: .08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: AppColors.danger.withValues(alpha: .35)),
-                ),
-                child: const Row(children: [
-                  Icon(Icons.info_outline_rounded,
-                      color: AppColors.warning, size: 14),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Large custom size — please contact us for an exact quote.',
+                const SizedBox(height: 6),
+                Row(children: [
+                  const Icon(Icons.currency_rupee_rounded,
+                      color: AppColors.textLight, size: 13),
+                  const SizedBox(width: 2),
+                  const Text('Est. Price: ',
                       style: TextStyle(
-                          color: AppColors.warning,
-                          fontSize: 11,
-                          height: 1.4),
+                          color: AppColors.textMuted, fontSize: 12)),
+                  Text(
+                    _price(size),
+                    style: TextStyle(
+                      color: size.isCustom
+                          ? AppColors.warning
+                          : AppColors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ]),
-              ),
-            ],
-
-            // ── Character fill bar ─────────────────────────────────────────
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: (count / 30).clamp(0.0, 1.0),
-                minHeight: 4,
-                backgroundColor: AppColors.navyLight,
-                color: glowColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
                 Text(
-                  '$count / 30 characters',
+                  '${size.sqft.toStringAsFixed(size.sqft == size.sqft.roundToDouble() ? 0 : 1)}'
+                  ' sq ft × ₹1,500/sqft',
                   style: const TextStyle(
                       color: AppColors.textMuted, fontSize: 10),
                 ),
-                if (count >= 25)
-                  Text(
-                    'Max 30 chars',
+              ]),
+            ),
+          ]),
+
+          // Custom size warning (21+ chars)
+          if (size.isCustom) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: AppColors.danger.withValues(alpha: .35)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.info_outline_rounded,
+                    color: AppColors.warning, size: 14),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Large custom size — please contact us for an exact quote.',
                     style: TextStyle(
-                        color: AppColors.danger, fontSize: 10),
+                        color: AppColors.warning,
+                        fontSize: 11,
+                        height: 1.4),
                   ),
-              ],
+                ),
+              ]),
             ),
           ],
+
+          // Character fill bar (denominator = 35 per requirements)
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              // MUST use 35 as denominator to allow testing 21+ custom size
+              value: (count / 35).clamp(0.0, 1.0),
+              minHeight: 4,
+              backgroundColor: AppColors.navyLight,
+              color: accent,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$count / 35 characters',   // shows X/35 as required
+                style: const TextStyle(
+                    color: AppColors.textMuted, fontSize: 10),
+              ),
+              if (count >= 30)
+                Text(
+                  'Max 35 chars',
+                  style: const TextStyle(
+                      color: AppColors.danger, fontSize: 10),
+                ),
+            ],
+          ),
         ],
-      ),
+      ]),
     );
   }
 }
