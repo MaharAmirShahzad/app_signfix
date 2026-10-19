@@ -89,6 +89,14 @@ class _JobsScreenState extends State<JobsScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.navyDeep,
+    floatingActionButton: FloatingActionButton(
+      mini: true,
+      backgroundColor: AppColors.navyDark,
+      foregroundColor: AppColors.gold,
+      onPressed: _refresh,
+      tooltip: 'Refresh',
+      child: const Icon(Icons.refresh_rounded),
+    ),
     body: RefreshIndicator(
     color: AppColors.info,
     backgroundColor: AppColors.navyDark,

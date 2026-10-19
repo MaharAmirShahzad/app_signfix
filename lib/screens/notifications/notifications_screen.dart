@@ -135,6 +135,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       title: const Text('Notifications',
           style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800)),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: AppColors.gold),
+          onPressed: _reload,
+        ),
         TextButton(
           onPressed: _markAllRead,
           child: const Text('Mark all read',

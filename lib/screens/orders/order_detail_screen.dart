@@ -54,6 +54,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ),
       title: Text(widget.orderId,
           style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.white)),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: AppColors.gold),
+          onPressed: _reload,
+        ),
+      ],
     ),
     body: FutureBuilder<Map<String, dynamic>>(
       future: _future,

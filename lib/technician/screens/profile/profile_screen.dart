@@ -150,7 +150,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.navyDeep,
+    appBar: AppBar(
+      backgroundColor: AppColors.navyDark,
+      automaticallyImplyLeading: false,
+      title: const Text('My Profile',
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800)),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: AppColors.gold),
+          onPressed: _reload,
+        ),
+      ],
+    ),
+    body: Container(
     color: AppColors.navyDeep,
     child: FutureBuilder<Map<String, dynamic>>(
       future: _future,
@@ -438,6 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         );
       },
+    ),
     ),
   );
 }

@@ -89,7 +89,21 @@ class _ActivityScreenState extends State<ActivityScreen>
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.navyDeep,
+    appBar: AppBar(
+      backgroundColor: AppColors.navyDark,
+      title: const Text('My Activity',
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800)),
+      automaticallyImplyLeading: false,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded, color: AppColors.gold),
+          onPressed: _reload,
+        ),
+      ],
+    ),
+    body: Column(
     children: [
       // Tab bar — dark theme
       Container(
@@ -171,6 +185,7 @@ class _ActivityScreenState extends State<ActivityScreen>
         ),
       ),
     ],
+    ),
   );
 }
 

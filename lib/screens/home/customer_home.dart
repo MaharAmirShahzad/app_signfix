@@ -25,6 +25,7 @@ class _CustomerHomeState extends State<CustomerHome> {
   late final List<Widget> _pages;
   // Notifier to switch ActivityScreen tab (0=orders, 1=services)
   final _trackTabNotifier = ValueNotifier<int>(0);
+  final _dashboardKey = GlobalKey<_DashboardState>();
 
   void _goTo(int i) => setState(() => _index = i);
 
@@ -33,7 +34,7 @@ class _CustomerHomeState extends State<CustomerHome> {
     super.initState();
     // ✅ FIX: pages ek baar banao — har setState pe recreate nahi hongi
     _pages = [
-      _Dashboard(api: widget.api, onOrder: () => _goTo(1), onService: () => _goTo(2), onLogout: widget.onLogout, onGoToTrack: (tab) {
+      _Dashboard(key: _dashboardKey, api: widget.api, onOrder: () => _goTo(1), onService: () => _goTo(2), onLogout: widget.onLogout, onGoToTrack: (tab) {
         _goTo(3); // go to Track tab
         // Pass tab index via a short delay so Track screen builds first
         Future.delayed(const Duration(milliseconds: 100), () {
@@ -82,6 +83,10 @@ class _CustomerHomeState extends State<CustomerHome> {
           ),
         ]),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: AppColors.gold),
+            onPressed: () => _dashboardKey.currentState?._reload(),
+          ),
           _NotificationBell(api: widget.api),
           IconButton(
             icon: const Icon(Icons.account_circle_outlined, color: AppColors.gold),
@@ -161,7 +166,7 @@ class _NotificationBellState extends State<_NotificationBell> {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 class _Dashboard extends StatefulWidget {
-  const _Dashboard({required this.api, required this.onOrder, required this.onService, required this.onGoToTrack, required this.onLogout});
+  const _Dashboard({super.key, required this.api, required this.onOrder, required this.onService, required this.onGoToTrack, required this.onLogout});
   final ApiClient api;
   final VoidCallback onOrder;
   final VoidCallback onService;

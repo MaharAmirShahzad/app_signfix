@@ -62,7 +62,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.navyDeep,
+    floatingActionButton: FloatingActionButton(
+      mini: true,
+      backgroundColor: AppColors.navyDark,
+      foregroundColor: AppColors.gold,
+      onPressed: _load,
+      tooltip: 'Refresh',
+      child: const Icon(Icons.refresh_rounded),
+    ),
+    body: RefreshIndicator(
     color: AppColors.info,
     backgroundColor: AppColors.navyDark,
     onRefresh: () async => _load(),
@@ -360,6 +370,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    ),
     ),
   );
 }

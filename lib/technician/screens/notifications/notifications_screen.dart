@@ -157,6 +157,11 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 const Spacer(),
                 TextButton(
+                  onPressed: refresh,
+                  child: const Text('Refresh',
+                      style: TextStyle(color: AppColors.info, fontWeight: FontWeight.w700)),
+                ),
+                TextButton(
                   onPressed: _markAllRead,
                   child: const Text('Mark all read',
                       style: TextStyle(color: AppColors.info, fontWeight: FontWeight.w700)),
