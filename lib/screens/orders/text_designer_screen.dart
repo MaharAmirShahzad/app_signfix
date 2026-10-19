@@ -379,6 +379,10 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
                   style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                 ),
                 const SizedBox(height: 30),
+
+                // ── Acrylic Backing Size Calculator ─────────────────────
+                _AcrylicSizeCard(text: _ctrl.text),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -417,6 +421,339 @@ class _TextDesignerScreenState extends State<TextDesignerScreen>
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ── Acrylic Backing Size Calculator ──────────────────────────────────────────
+// Automatically calculates recommended acrylic board size based on text length.
+// Matches Neon Adda style: dark theme, neon glow, real-time update.
+
+class _AcrylicSize {
+  const _AcrylicSize({
+    required this.label,      // e.g. "2 × 1 ft"
+    required this.sqft,       // e.g. 2.0
+    required this.width,      // e.g. 2
+    required this.height,     // e.g. 1
+    this.isCustom = false,    // true for 21+ chars
+  });
+  final String label;
+  final double sqft;
+  final int width;
+  final int height;
+  final bool isCustom;
+}
+
+class _AcrylicSizeCard extends StatelessWidget {
+  const _AcrylicSizeCard({required this.text});
+  final String text;
+
+  // ── Core business logic ───────────────────────────────────────────────────
+  // Count alphanumeric characters only (ignore spaces & special chars)
+  static int _charCount(String text) =>
+      text.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').length;
+
+  // Map character count → acrylic size
+  static _AcrylicSize? _calcSize(String text) {
+    final count = _charCount(text.trim());
+    if (count == 0) return null;                              // empty
+    if (count <= 5)  return const _AcrylicSize(label: '1 × 1 ft',   sqft: 1,  width: 1, height: 1);
+    if (count <= 10) return const _AcrylicSize(label: '2 × 1 ft',   sqft: 2,  width: 2, height: 1);
+    if (count <= 15) return const _AcrylicSize(label: '3 × 1 ft',   sqft: 3,  width: 3, height: 1);
+    if (count <= 20) return const _AcrylicSize(label: '4 × 1.5 ft', sqft: 6,  width: 4, height: 2);
+    return const _AcrylicSize(label: '5 × 2 ft', sqft: 10, width: 5, height: 2, isCustom: true);
+  }
+
+  // ── Pricing ───────────────────────────────────────────────────────────────
+  // Base rate: ₹1,500 per sq ft (change this to your actual rate)
+  static const double _ratePerSqft = 1500;
+
+  static String _priceLabel(_AcrylicSize size) {
+    if (size.isCustom) return 'Contact for Quote';
+    final price = (size.sqft * _ratePerSqft).round();
+    return '₹${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},')}';
+  }
+
+  // ── Board diagram: proportional box ─────────────────────────────────────
+  Widget _boardDiagram(_AcrylicSize size, Color glowColor) {
+    // Max width 80, height proportional
+    final ratio = size.height / size.width;
+    final boxW = 72.0;
+    final boxH = (boxW * ratio).clamp(18.0, 72.0);
+    return Container(
+      width: boxW,
+      height: boxH,
+      decoration: BoxDecoration(
+        color: glowColor.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: glowColor.withValues(alpha: .6), width: 1.5),
+        boxShadow: [BoxShadow(color: glowColor.withValues(alpha: .25), blurRadius: 8)],
+      ),
+      child: Center(
+        child: Text(
+          size.label,
+          style: TextStyle(
+            color: glowColor,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = _calcSize(text);
+    final count = _charCount(text.trim());
+    final isEmpty = text.trim().isEmpty;
+
+    // Color per step: gold → goldLight → info → warning → danger
+    final Color glowColor = size == null
+        ? AppColors.textMuted
+        : size.isCustom
+            ? AppColors.danger
+            : count <= 5
+                ? AppColors.gold
+                : count <= 10
+                    ? AppColors.goldLight
+                    : count <= 15
+                        ? AppColors.info
+                        : AppColors.warning;
+
+    // Progress: which step is active (0-4)
+    final int activeStep = size == null
+        ? -1
+        : size.isCustom
+            ? 4
+            : count <= 5
+                ? 0
+                : count <= 10
+                    ? 1
+                    : count <= 15
+                        ? 2
+                        : 3;
+
+    final steps = ['1×1', '2×1', '3×1', '4×1.5', '5×2'];
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.navyDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isEmpty ? AppColors.navyLight : glowColor.withValues(alpha: .45),
+          width: isEmpty ? 1 : 1.5,
+        ),
+        boxShadow: isEmpty
+            ? []
+            : [BoxShadow(color: glowColor.withValues(alpha: .12), blurRadius: 14)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──────────────────────────────────────────────────────
+          Row(children: [
+            Icon(Icons.straighten_rounded,
+                color: isEmpty ? AppColors.textMuted : glowColor, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'Acrylic Backing Size',
+              style: TextStyle(
+                color: isEmpty ? AppColors.textMuted : AppColors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+            const Spacer(),
+            if (!isEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: glowColor.withValues(alpha: .15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: glowColor.withValues(alpha: .4)),
+                ),
+                child: Text(
+                  '$count char${count == 1 ? '' : 's'}',
+                  style: TextStyle(
+                      color: glowColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700),
+                ),
+              ),
+          ]),
+          const SizedBox(height: 12),
+
+          if (isEmpty) ...[
+            // ── Empty state ────────────────────────────────────────────────
+            const Center(
+              child: Text(
+                'Enter text above to see recommended size',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ] else ...[
+            // ── Progress steps ─────────────────────────────────────────────
+            Row(children: List.generate(steps.length, (i) {
+              final isActive = i == activeStep;
+              final isDone = i < activeStep;
+              return Expanded(
+                child: Row(children: [
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDone || isActive ? glowColor : AppColors.navyLight,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  if (i < steps.length - 1) const SizedBox(width: 2),
+                ]),
+              );
+            })),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(steps.length, (i) {
+                final isActive = i == activeStep;
+                return Text(
+                  steps[i],
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w400,
+                    color: isActive ? glowColor : AppColors.textMuted,
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 14),
+
+            // ── Size + Price + Diagram ─────────────────────────────────────
+            Row(children: [
+              // Board diagram
+              _boardDiagram(size!, glowColor),
+              const SizedBox(width: 16),
+              // Size & price info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recommended Size',
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 11),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      size.label,
+                      style: TextStyle(
+                        color: glowColor,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        shadows: [
+                          Shadow(
+                              color: glowColor.withValues(alpha: .6),
+                              blurRadius: 10),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      Icon(Icons.currency_rupee_rounded,
+                          color: AppColors.textLight, size: 13),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Est. Price: ',
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 12),
+                      ),
+                      Text(
+                        _priceLabel(size),
+                        style: TextStyle(
+                          color: size.isCustom
+                              ? AppColors.warning
+                              : AppColors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ]),
+                    Text(
+                      '${size.sqft.toStringAsFixed(size.sqft == size.sqft.roundToDouble() ? 0 : 1)} sq ft × ₹1,500/sqft',
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+            ]),
+
+            // ── Custom size warning ────────────────────────────────────────
+            if (size.isCustom) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: AppColors.danger.withValues(alpha: .35)),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.info_outline_rounded,
+                      color: AppColors.warning, size: 14),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Large custom size — please contact us for an exact quote.',
+                      style: TextStyle(
+                          color: AppColors.warning,
+                          fontSize: 11,
+                          height: 1.4),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+
+            // ── Character fill bar ─────────────────────────────────────────
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (count / 30).clamp(0.0, 1.0),
+                minHeight: 4,
+                backgroundColor: AppColors.navyLight,
+                color: glowColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$count / 30 characters',
+                  style: const TextStyle(
+                      color: AppColors.textMuted, fontSize: 10),
+                ),
+                if (count >= 25)
+                  Text(
+                    'Max 30 chars',
+                    style: TextStyle(
+                        color: AppColors.danger, fontSize: 10),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
