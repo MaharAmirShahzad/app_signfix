@@ -1452,29 +1452,29 @@ class _OrderWizardState extends State<OrderWizard> {
             _WizardPayMethod(Icons.account_balance_wallet_outlined, 'UPI / GPay',
                 AppColors.gold,
                 selected: _payMethod == 'upi',
-                onTap: () => setState(() => _payMethod = 'upi')),
+                onTap: () => setState(() { _payMethod = 'upi'; _payError = null; _upiError = null; })),
             const SizedBox(width: 10),
             _WizardPayMethod(Icons.credit_card_outlined, 'Credit / Debit',
                 AppColors.info,
                 selected: _payMethod == 'card',
-                onTap: () => setState(() => _payMethod = 'card')),
+                onTap: () => setState(() { _payMethod = 'card'; _payError = null; _upiError = null; })),
             const SizedBox(width: 10),
             _WizardPayMethod(Icons.account_balance_outlined, 'Net Banking',
                 AppColors.success,
                 selected: _payMethod == 'netbanking',
-                onTap: () => setState(() => _payMethod = 'netbanking')),
+                onTap: () => setState(() { _payMethod = 'netbanking'; _payError = null; _upiError = null; })),
           ]),
           const SizedBox(height: 12),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             _WizardPayMethod(Icons.phone_android_outlined, 'Wallets',
                 AppColors.warning,
                 selected: _payMethod == 'wallet',
-                onTap: () => setState(() => _payMethod = 'wallet')),
+                onTap: () => setState(() { _payMethod = 'wallet'; _payError = null; _upiError = null; })),
             const SizedBox(width: 10),
             _WizardPayMethod(Icons.currency_rupee_outlined, 'EMI',
                 AppColors.textLight,
                 selected: _payMethod == 'emi',
-                onTap: () => setState(() => _payMethod = 'emi')),
+                onTap: () => setState(() { _payMethod = 'emi'; _payError = null; _upiError = null; })),
           ]),
           const SizedBox(height: 16),
           // Dynamic fields based on selected method
@@ -1665,9 +1665,11 @@ class _OrderWizardState extends State<OrderWizard> {
             counterText: '',
           ),
           onChanged: (v) {
-            if (v.length == 2 && !v.contains('/')) {
+            // Auto-add slash but not on backspace (only when length goes 2→3)
+            final withoutSlash = v.replaceAll('/', '');
+            if (withoutSlash.length == 2 && !v.contains('/')) {
               _expiryCtrl.value = TextEditingValue(
-                text: '$v/',
+                text: '$withoutSlash/',
                 selection: const TextSelection.collapsed(offset: 3),
               );
             }
