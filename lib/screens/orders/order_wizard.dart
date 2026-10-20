@@ -1804,61 +1804,61 @@ class _OrderWizardState extends State<OrderWizard> {
   List<Widget> _buildWalletFields() {
     final wallets = [
       const _WalletOption('GPay', Icons.account_balance_wallet_rounded, AppColors.info),
-      const _WalletOption(
-          'PhonePe', Icons.phone_android_rounded, Color(0xFF5F259F)),
+      const _WalletOption('PhonePe', Icons.phone_android_rounded, Color(0xFF5F259F)),
       const _WalletOption('Paytm', Icons.payment_rounded, AppColors.info),
     ];
     return [
-      Row(
-        children: wallets.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final w = entry.value;
-          final selected = _selectedWallet == w.name;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() {
-                _selectedWallet = w.name;
-                if (_payError != null) _payError = null;
-              }),
-              child: Container(
-                margin: EdgeInsets.only(
-                    right: idx < wallets.length - 1 ? 10 : 0),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? w.color.withValues(alpha: .15)
-                      : AppColors.navyDark,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: selected ? AppColors.gold : AppColors.navyLight,
-                    width: selected ? 2 : 1,
-                  ),
-                ),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(w.icon,
-                      color:
-                          selected ? w.color : AppColors.textMuted,
-                      size: 28),
-                  const SizedBox(height: 8),
-                  Text(
-                    w.name,
-                    style: TextStyle(
-                      color: selected
-                          ? AppColors.white
-                          : AppColors.textMuted,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
+      // Use fixed-height containers instead of Expanded inside ListView
+      SizedBox(
+        height: 90,
+        child: Row(
+          children: wallets.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final w   = entry.value;
+            final selected = _selectedWallet == w.name;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _selectedWallet = w.name;
+                  if (_payError != null) _payError = null;
+                }),
+                child: Container(
+                  margin: EdgeInsets.only(right: idx < wallets.length - 1 ? 10 : 0),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? w.color.withValues(alpha: .15)
+                        : AppColors.navyDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: selected ? AppColors.gold : AppColors.navyLight,
+                      width: selected ? 2 : 1,
                     ),
                   ),
-                ]),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(w.icon,
+                          color: selected ? w.color : AppColors.textMuted,
+                          size: 28),
+                      const SizedBox(height: 6),
+                      Text(
+                        w.name,
+                        style: TextStyle(
+                          color: selected ? AppColors.white : AppColors.textMuted,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     ];
   }
-
   // ── EMI fields ─────────────────────────────────────────────────────────────
   List<Widget> _buildEmiFields() {
     final total =
