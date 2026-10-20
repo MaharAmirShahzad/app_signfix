@@ -400,8 +400,23 @@ class _OrderWizardState extends State<OrderWizard> {
       final payAmount =
           _paymentType == 'advance' ? estimatedPrice * 0.25 : estimatedPrice;
 
+      // ── Step 1: Create order first if not done yet ───────────────────────
+      // Order must exist before payment intent — backend auto-creates quotation
+      if (_autoQuotationNo.isEmpty) {
+        await _submitOrder();
+        // If submitOrder failed or quotationNo still empty, stop
+        if (_autoQuotationNo.isEmpty) {
+          setState(() {
+            _payProcessing = false;
+            _payError = 'Could not create order. Please try again.';
+          });
+          return;
+        }
+      }
+
+      // ── Step 2: Create payment intent with the real quotationNo ──────────
       final intent = await widget.api.createPaymentIntent({
-        'quotationNo': _autoQuotationNo.isNotEmpty ? _autoQuotationNo : 'PENDING',
+        'quotationNo': _autoQuotationNo,
         'type': _paymentType,
         'amount': payAmount,
         'idempotencyKey':
@@ -557,7 +572,33 @@ class _OrderWizardState extends State<OrderWizard> {
         _payPending    = false;
         _payError      = null;
       });
-      await _submitOrder();
+      // Order already created before payment — just show success dialog
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: AppColors.navyDark,
+            icon: const Icon(Icons.check_circle_rounded,
+                color: AppColors.success, size: 48),
+            title: const Text('Payment Successful!',
+                style: TextStyle(color: AppColors.white)),
+            content: Text(
+              'Your payment was received and order $_autoQuotationNo is confirmed.\n\nAdmin will review and proceed with production.',
+              style: const TextStyle(color: AppColors.textLight),
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _reset();
+                },
+                child: const Text('View Orders'),
+              ),
+            ],
+          ),
+        );
+      }
     } catch (e) {
       _setPayPending(
         'Payment was received but could not be verified: $e. '
