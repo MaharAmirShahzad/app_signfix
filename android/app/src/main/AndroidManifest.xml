@@ -40,6 +40,27 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- ── Razorpay UPI Deep Link return ─────────────────────────────
+                 Required for GPay, PhonePe, Paytm to redirect back to app
+                 after payment. Without this, the UPI app stays open and
+                 Flutter never receives the payment result callback.
+            ────────────────────────────────────────────────────────────────-->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <!-- Your app's UPI return scheme — must match Razorpay callback_url -->
+                <data android:scheme="signfix" android:host="payment"/>
+            </intent-filter>
+
+            <!-- UPI scheme deep link (handles upi://pay?... redirects) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="upi"/>
+            </intent-filter>
         </activity>
 
         <!-- Razorpay CheckoutActivity — let Razorpay define its own theme -->

@@ -433,13 +433,42 @@ class _OrderWizardState extends State<OrderWizard> {
       _payIntentId = intentId;
 
       final upiId = _upiController.text.trim();
-      final methodHint = switch (_payMethod) {
-        'upi'        => <String, dynamic>{'upi': 1},
-        'card'       => <String, dynamic>{'card': 1},
-        'netbanking' => <String, dynamic>{'netbanking': 1},
-        'wallet'     => <String, dynamic>{'wallet': 1},
-        'emi'        => <String, dynamic>{'emi': 1},
+
+      // ── FIX: Razorpay expects method as a STRING, not a Map ──────────────
+      // Wrong:  'method': {'upi': 1}   ← SDK ignores this silently
+      // Correct:'method': 'upi'        ← SDK pre-selects and deep-links
+      final String? razorpayMethod = switch (_payMethod) {
+        'upi'        => 'upi',
+        'card'       => 'card',
+        'netbanking' => 'netbanking',
+        'wallet'     => 'wallet',
+        'emi'        => 'emi',
         _            => null,
+      };
+
+      // ── Wallet name → Razorpay wallet code mapping ────────────────────────
+      // Razorpay wallet codes: 'paytm', 'phonepe', 'googlepay', etc.
+      final String? walletCode = switch (_selectedWallet) {
+        'GPay'     => 'googlepay',
+        'PhonePe'  => 'phonepe',
+        'Paytm'    => 'paytm',
+        _          => null,
+      };
+
+      // ── Bank name → Razorpay bank code mapping ────────────────────────────
+      // Razorpay netbanking bank codes (IFSC-style short codes)
+      final String? bankCode = switch (_selectedBank) {
+        'SBI'                   => 'SBIN',
+        'HDFC Bank'             => 'HDFC',
+        'ICICI Bank'            => 'ICIC',
+        'Axis Bank'             => 'UTIB',
+        'Kotak Mahindra'        => 'KKBK',
+        'Punjab National Bank'  => 'PUNB',
+        'Bank of Baroda'        => 'BARB',
+        'Canara Bank'           => 'CNRB',
+        'Yes Bank'              => 'YESB',
+        'IDBI Bank'             => 'IBKL',
+        _                       => null,
       };
 
       _razorpay.open({
@@ -452,10 +481,17 @@ class _OrderWizardState extends State<OrderWizard> {
         'prefill': {
           'name':    profile['name']?.toString() ?? '',
           'email':   profile['email']?.toString() ?? '',
-          'contact': profile['phone']?.toString() ?? '',
+          'contact': profile['phone']?.toString() ?? profile['mobile']?.toString() ?? '',
+          // Prefill UPI VPA only when UPI is selected and user has entered an ID
           if (_payMethod == 'upi' && upiId.isNotEmpty) 'vpa': upiId,
+          // Prefill bank code for net banking — guides Razorpay to correct bank page
+          if (_payMethod == 'netbanking' && bankCode != null) 'bank': bankCode,
+          // Prefill wallet code for wallet payments — triggers deep-link
+          if (_payMethod == 'wallet' && walletCode != null) 'wallet': walletCode,
         },
-        if (methodHint != null) 'method': methodHint,
+        // Pass method as STRING — this is the key fix
+        // Razorpay SDK uses this to pre-select the tab & trigger deep-links
+        if (razorpayMethod != null) 'method': razorpayMethod,
         'theme': {
           'color':          '#F5A623',
           'backdrop_color': '#0D1B4B',
