@@ -55,6 +55,9 @@ class _OrderWizardState extends State<OrderWizard> {
   // Payment type
   String _paymentType = 'full';
 
+  // Auto-generated quotationNo from backend after order creation
+  String _autoQuotationNo = '';
+
   // Card payment controllers
   final _cardNumberCtrl = TextEditingController();
   final _expiryCtrl     = TextEditingController();
@@ -259,11 +262,15 @@ class _OrderWizardState extends State<OrderWizard> {
           'signColor': _textDesign!.color.toARGB32().toRadixString(16),
       });
       final id = order['id']?.toString();
+      // Save quotationNo returned by backend (auto-created with order)
+      final quotationNo = order['quotationNo']?.toString() ?? '';
       if (id == null || id.isEmpty) {
         throw const ApiException(
           'The server did not return the new order number.',
         );
       }
+      // Store quotationNo for payment intent
+      setState(() => _autoQuotationNo = quotationNo);
       if (mounted) {
         await showDialog(
             context: context,
@@ -310,6 +317,7 @@ class _OrderWizardState extends State<OrderWizard> {
         _ledWatt = '10W';
         _sideWalling = null;
         _paymentType = 'full';
+        _autoQuotationNo = '';
         _cardNumberCtrl.clear();
         _expiryCtrl.clear();
         _cvvCtrl.clear();
@@ -393,7 +401,7 @@ class _OrderWizardState extends State<OrderWizard> {
           _paymentType == 'advance' ? estimatedPrice * 0.25 : estimatedPrice;
 
       final intent = await widget.api.createPaymentIntent({
-        'quotationNo': 'PENDING',
+        'quotationNo': _autoQuotationNo.isNotEmpty ? _autoQuotationNo : 'PENDING',
         'type': _paymentType,
         'amount': payAmount,
         'idempotencyKey':
