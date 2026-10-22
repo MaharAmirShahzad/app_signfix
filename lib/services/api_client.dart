@@ -1,13 +1,15 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.field, this.code});
   final String message;
   final int? statusCode;
+  final String? field;
+  final String? code;
   @override
   String toString() => message;
 }
@@ -588,6 +590,18 @@ class ApiClient {
     return _request('POST', '/customer/payments/intents', body: data);
   }
 
+  Future<Map<String, dynamic>> createOrderPaymentIntent(
+      Map<String, dynamic> data) async {
+    if (mockMode) return createPaymentIntent(data);
+
+    final requestData = Map<String, dynamic>.from(data)..remove('amount');
+    return _request(
+      'POST',
+      '/customer/payments/order-intents',
+      body: requestData,
+    );
+  }
+
   Future<Map<String, dynamic>> verifyPayment(
           String paymentId, Map<String, dynamic> data) =>
       _request('POST', '/customer/payments/$paymentId/verify', body: data);
@@ -677,7 +691,9 @@ class ApiClient {
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message =
-          decoded is Map ? decoded['error'] ?? decoded['message'] : null;
+          decoded is Map ? (decoded['error'] ?? decoded['message']) : null;
+      final field = decoded is Map ? decoded['field']?.toString() : null;
+      final code = decoded is Map ? decoded['code']?.toString() : null;
       String errorMsg = message?.toString() ??
           'Request failed (${response.statusCode}).';
       // Auto-clear token on 401 so next request forces re-login
@@ -688,10 +704,6 @@ class ApiClient {
           prefs.remove('token');
           prefs.remove('userEmail');
         });
-        throw const ApiException(
-          'Authentication required',
-          statusCode: 401,
-        );
       }
       // Show validation field errors if present
       if (decoded is Map && decoded['details'] != null) {
@@ -703,7 +715,12 @@ class ApiClient {
           errorMsg = '$errorMsg — $fields';
         }
       }
-      throw ApiException(errorMsg, statusCode: response.statusCode);
+      throw ApiException(
+        errorMsg,
+        statusCode: response.statusCode,
+        field: field,
+        code: code,
+      );
     }
     if (decoded is! Map<String, dynamic>) {
       throw ApiException(

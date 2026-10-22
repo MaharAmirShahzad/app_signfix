@@ -24,6 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading   = false;
   bool _obscure   = true;
   String? _error;
+  String? _emailError;
+  String? _passwordError;
   bool _showRegister = false;
 
   @override
@@ -34,25 +36,61 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _email.text.trim();
     final pass  = _password.text;
 
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+      _error = null;
+    });
+
     if (email.isEmpty) {
-      setState(() => _error = 'Please enter your email address.'); return;
+      setState(() => _emailError = 'Please enter your email address.'); return;
     }
     if (!email.contains('@') || !email.contains('.')) {
-      setState(() => _error = 'Please enter a valid email address.'); return;
+      setState(() => _emailError = 'Please enter a valid email address.'); return;
     }
     if (pass.isEmpty) {
-      setState(() => _error = 'Please enter your password.'); return;
+      setState(() => _passwordError = 'Please enter your password.'); return;
     }
     if (pass.length < 6) {
-      setState(() => _error = 'Password must be at least 6 characters.'); return;
+      setState(() => _passwordError = 'Password must be at least 6 characters.'); return;
     }
 
     setState(() { _loading = true; _error = null; });
     try {
       await widget.api.login(email, pass);
       widget.onAuthenticated();
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          final msg = e.message.toLowerCase();
+          if (e.field == 'email' ||
+              e.code == 'EMAIL_NOT_FOUND' ||
+              msg.contains('email') ||
+              msg.contains('no account')) {
+            _emailError = e.message;
+          } else if (e.field == 'password' ||
+              e.code == 'INVALID_PASSWORD' ||
+              msg.contains('password')) {
+            _passwordError = e.message;
+          } else {
+            _error = e.message;
+          }
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) {
+        final errStr = e.toString();
+        final errLower = errStr.toLowerCase();
+        setState(() {
+          if (errLower.contains('email') || errLower.contains('no account')) {
+            _emailError = errStr;
+          } else if (errLower.contains('password')) {
+            _passwordError = errStr;
+          } else {
+            _error = errStr;
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -140,10 +178,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     style: const TextStyle(color: AppColors.white),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Email address',
-                      prefixIcon: Icon(Icons.mail_outline),
+                      prefixIcon: const Icon(Icons.mail_outline),
+                      errorText: _emailError,
                     ),
+                    onChanged: (_) {
+                      if (_emailError != null || _error != null) {
+                        setState(() {
+                          _emailError = null;
+                          _error = null;
+                        });
+                      }
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -154,6 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline),
+                      errorText: _passwordError,
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -162,6 +210,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () => setState(() => _obscure = !_obscure),
                       ),
                     ),
+                    onChanged: (_) {
+                      if (_passwordError != null || _error != null) {
+                        setState(() {
+                          _passwordError = null;
+                          _error = null;
+                        });
+                      }
+                    },
                   ),
 
                   if (_error != null) ...[

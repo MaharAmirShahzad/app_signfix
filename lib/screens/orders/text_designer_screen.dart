@@ -766,9 +766,9 @@ class _AcrylicSizeCard extends StatelessWidget {
                     color: AppColors.textMuted, fontSize: 10),
               ),
               if (count >= 30)
-                Text(
+                const Text(
                   'Max 35 chars',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: AppColors.danger, fontSize: 10),
                 ),
             ],

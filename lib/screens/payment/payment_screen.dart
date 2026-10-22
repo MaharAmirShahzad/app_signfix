@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../core/app_theme.dart';
@@ -8,23 +7,7 @@ import '../../services/api_client.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  PaymentScreen — Full Razorpay checkout with dark SignFix theme
-//  Usage:
-//    Navigator.push(context, MaterialPageRoute(
-//      builder: (_) => PaymentScreen(
-//        api:          apiClient,
-//        orderId:      'ORD-1001',
-//      quotationNo:  'QUO-1001',
-//      paymentType:  'full',
-//      amount:       18500,   // in INR (not paise)
-//        customerName: 'Ali Raza',
-//        customerEmail:'ali@example.com',
-//        customerPhone:'9876543210',
-//        description:  'LED Sign Board 10×3 ft',
-//        onSuccess: (paymentId) { ... },
-//        onFailure: (reason)    { ... },
-//      ),
-//    ));
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({
@@ -46,7 +29,7 @@ class PaymentScreen extends StatefulWidget {
   final String orderId;
   final String quotationNo;
   final String paymentType;
-  final double amount; // INR
+  final double amount; // INR (Rupees)
   final String customerName;
   final String customerEmail;
   final String customerPhone;
@@ -83,7 +66,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.dispose();
   }
 
-  Future<void> _launch({String? method, String? upiId}) async {
+  Future<void> _launch({String? upiId}) async {
     setState(() {
       _launched = true;
       _processing = true;
@@ -92,82 +75,97 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
+      // 1. Backend se payment intent mango
       final intent = await widget.api.createPaymentIntent({
         'quotationNo': widget.quotationNo,
         'type': widget.paymentType,
+        'amount': widget.amount,
         'idempotencyKey':
             '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32).toRadixString(16)}',
       });
+
       final paymentIntentId = intent['id']?.toString();
       final checkoutValue = intent['checkout'];
+
       if (paymentIntentId == null ||
           paymentIntentId.isEmpty ||
           checkoutValue is! Map) {
-        throw const ApiException(
-          'The server did not return a valid Razorpay payment intent.',
-        );
+        throw Exception('Server ne valid payment intent nahi bheja.');
       }
+
       final checkout = Map<String, dynamic>.from(checkoutValue);
       final keyId = checkout['keyId']?.toString();
       final providerOrderId = checkout['orderId']?.toString();
-      final checkoutAmount = checkout['amount'];
-      final currency = checkout['currency']?.toString();
-      if (keyId == null ||
-          keyId.isEmpty ||
-          providerOrderId == null ||
-          providerOrderId.isEmpty ||
-          checkoutAmount is! num ||
-          checkoutAmount <= 0 ||
-          currency == null ||
-          currency.isEmpty) {
-        throw const ApiException(
-          'The server returned incomplete Razorpay checkout details.',
-        );
+
+      // Amount ko safe tarike se handle karna (Int ya Double dono handle honge)
+      final dynamic rawAmount = checkout['amount'];
+      final int amountInPaise;
+      if (rawAmount is int) {
+        amountInPaise = rawAmount;
+      } else if (rawAmount is double) {
+        amountInPaise = rawAmount.round();
+      } else {
+        throw Exception('Backend ne invalid amount format bheja hai.');
       }
+
+      final currency = checkout['currency']?.toString() ?? 'INR';
+
+      // 2. STRICT CHECKS (Yahan se pata chalega masla kya hai)
+      if (keyId == null || !keyId.startsWith('rzp_')) {
+        throw Exception(
+            'Galat Key ID: "$keyId". Yeh rzp_ se shuru honi chahiye.');
+      }
+
+      // ⚠️ SABSE ZARORI CHECK: Order ID
+      if (providerOrderId == null || !providerOrderId.startsWith('order_')) {
+        throw Exception('Backend Error: Galat Order ID "$providerOrderId". '
+            'Backend ko Razorpay ka Order ID (jo "order_" se shuru hota hai, jaise order_NxYz...) bhejna chahiye, app ka internal ID nahi.');
+      }
+
+      if (amountInPaise <= 0) {
+        throw Exception('Amount 0 ya negative hai: $amountInPaise');
+      }
+
       _paymentIntentId = paymentIntentId;
 
-      final methodHint = method == null
-          ? null
-          : switch (method) {
-              'upi' => {'upi': 1},
-              'card' => {'card': 1},
-              'netbanking' => {'netbanking': 1},
-              'wallet' => {'wallet': 1},
-              'emi' => {'emi': 1},
-              _ => null,
-            };
+      // 3. DEBUG LOGS (Console mein yeh zaroor dekhna)
+      debugPrint('🔑 Key ID: $keyId');
+      debugPrint(' Razorpay Order ID: $providerOrderId');
+      debugPrint('💰 Amount Backend se (Paise): $amountInPaise');
+      debugPrint('💵 Rupees mein: ₹${amountInPaise / 100}');
 
-      _razorpay.open({
+      // 4. Razorpay Open Karein
+      var options = {
         'key': keyId,
-        'amount': checkoutAmount,
+        'amount':
+            amountInPaise, // Exact amount jo backend ne order banate waqt use kiya tha
         'currency': currency,
-        'name': checkout['name']?.toString() ?? 'SignFix',
-        'description':
-            checkout['description']?.toString() ?? widget.description,
-        'order_id': providerOrderId,
+        'name': 'SignFix',
+        'description': widget.description,
+        'order_id': providerOrderId, // Yahan sirf 'order_' wala ID jana chahiye
         'prefill': {
           'name': widget.customerName,
           'email': widget.customerEmail,
           'contact': widget.customerPhone,
-          if (upiId != null && upiId.isNotEmpty) 'vpa': upiId,
         },
-        if (methodHint != null) 'method': methodHint,
         'theme': {
           'color': '#F5A623',
-          'backdrop_color': '#0D1B4B',
         },
-        'notes': {
-          'signfix_quotation_no': widget.quotationNo,
-          'signfix_order_no': widget.orderId,
-        },
-        'retry': {'enabled': true, 'max_count': 3},
-        'send_sms_hash': true,
-      });
+        'modal': {
+          'ondismiss': () {
+            debugPrint('User ne Razorpay checkout band kar diya.');
+          }
+        }
+      };
+
+      _razorpay.open(options);
     } catch (e) {
+      debugPrint('❌ PAYMENT SETUP ERROR: $e');
       if (!mounted) return;
       setState(() {
         _processing = false;
-        _resultMessage = e.toString();
+        // User ko exact error dikhayein taaki wo samajh sake
+        _resultMessage = 'Payment Setup Failed:\n$e';
         _isSuccess = false;
         _isPending = false;
         _canRetry = true;
@@ -184,6 +182,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final paymentId = resp.paymentId;
     final providerOrderId = resp.orderId;
     final signature = resp.signature;
+
     if (paymentIntentId == null ||
         paymentId == null ||
         providerOrderId == null ||
@@ -199,18 +198,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _resultMessage = null;
       _canRetry = false;
     });
+
     try {
       final verified = await widget.api.verifyPayment(paymentIntentId, {
         'razorpayPaymentId': paymentId,
         'razorpayOrderId': providerOrderId,
         'razorpaySignature': signature,
       });
+
       if (verified['status']?.toString() != 'captured') {
         _showPending(
           'Razorpay received your payment, but SignFix has not confirmed it yet. Do not pay again; check your payment status or contact support.',
         );
         return;
       }
+
       if (!mounted) return;
       setState(() {
         _processing = false;
@@ -241,96 +243,45 @@ class _PaymentScreenState extends State<PaymentScreen> {
     unawaited(_reportFailure(resp));
   }
 
-  // ── Map Razorpay error codes to user-friendly messages ───────────────────
   String _friendlyError(PaymentFailureResponse resp) {
     final code = resp.code ?? 0;
-    final raw  = (resp.message ?? '').toLowerCase();
+    final raw = (resp.message ?? '').toLowerCase();
 
-    // User cancelled
     if (code == Razorpay.PAYMENT_CANCELLED ||
-        raw.contains('cancel') || raw.contains('dismiss')) {
+        raw.contains('cancel') ||
+        raw.contains('dismiss')) {
       return 'You cancelled the payment. You can try again whenever you\'re ready.';
     }
-
-    // Network / connectivity
     if (code == Razorpay.NETWORK_ERROR ||
-        raw.contains('network') || raw.contains('internet') ||
-        raw.contains('connect') || raw.contains('timeout')) {
+        raw.contains('network') ||
+        raw.contains('internet') ||
+        raw.contains('connect') ||
+        raw.contains('timeout')) {
       return 'Unable to connect to the payment service. Please check your internet connection and try again.';
     }
-
-    // UPI specific
-    if (raw.contains('upi') || raw.contains('vpa') || raw.contains('upi id')) {
-      if (raw.contains('invalid') || raw.contains('incorrect')) {
-        return 'The UPI ID is invalid. Please check your details and try again.';
-      }
-      if (raw.contains('declined') || raw.contains('rejected')) {
-        return 'Your UPI payment was declined. Please try another UPI app or payment method.';
-      }
-      if (raw.contains('expired') || raw.contains('timeout')) {
-        return 'The UPI payment request expired. Please try again.';
-      }
-    }
-
-    // Insufficient funds
-    if (raw.contains('insufficient') || raw.contains('low balance') ||
+    if (raw.contains('insufficient') ||
+        raw.contains('low balance') ||
         raw.contains('not enough')) {
       return 'Your account has insufficient funds. Please use another payment method.';
     }
-
-    // Card declined
-    if (raw.contains('declined') || raw.contains('do not honour') ||
-        raw.contains('card blocked') || raw.contains('restricted')) {
+    if (raw.contains('declined') ||
+        raw.contains('do not honour') ||
+        raw.contains('card blocked')) {
       return 'Your payment was declined by the bank. Please try another payment method.';
     }
 
-    // Invalid card details
-    if (raw.contains('invalid card') || raw.contains('card number') ||
-        raw.contains('expiry') || raw.contains('cvv')) {
-      return 'Your card details are invalid. Please check and try again.';
-    }
-
-    // Bank server unavailable
-    if (raw.contains('bank') && (raw.contains('unavailable') ||
-        raw.contains('down') || raw.contains('error'))) {
-      return 'Your bank\'s payment service is temporarily unavailable. Please try again later or use another method.';
-    }
-
-    // 3D Secure / OTP failure
-    if (raw.contains('otp') || raw.contains('3d secure') ||
-        raw.contains('authentication')) {
-      return 'Payment authentication failed. Please check the OTP and try again.';
-    }
-
-    // Gateway timeout
-    if (raw.contains('timeout') || raw.contains('timed out') ||
-        raw.contains('gateway')) {
-      return 'The payment gateway timed out. Please check your payment status before trying again.';
-    }
-
-    // Duplicate / already paid
-    if (raw.contains('duplicate') || raw.contains('already paid')) {
-      return 'This payment may have already been processed. Please check your order status before trying again.';
-    }
-
-    // Razorpay error codes (numeric)
-    if (code == 0 && raw.isEmpty) {
-      return 'Payment could not be completed. Please try again.';
-    }
-
-    // Fallback — clean up raw message if available
-    final cleanMsg = resp.message?.replaceAll(RegExp(r'Exception:?\s*'), '')
-        .replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
-    if (cleanMsg.isNotEmpty && cleanMsg.length < 120) {
-      return cleanMsg;
-    }
+    final cleanMsg = resp.message
+            ?.replaceAll(RegExp(r'Exception:?\s*'), '')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim() ??
+        '';
+    if (cleanMsg.isNotEmpty && cleanMsg.length < 120) return cleanMsg;
 
     return 'Payment could not be completed. Please try a different payment method or contact support.';
   }
 
   Future<void> _reportFailure(PaymentFailureResponse resp) async {
     final paymentIntentId = _paymentIntentId;
-    // Get user-friendly message first
     final message = _friendlyError(resp);
 
     if (paymentIntentId != null) {
@@ -341,10 +292,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'source': 'razorpay',
           'step': 'checkout',
         });
-      } catch (_) {
-        // Silent — don't override the user-friendly message with a backend error
-      }
+      } catch (_) {}
     }
+
     if (!mounted) return;
     setState(() {
       _processing = false;
@@ -410,14 +360,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     amount: widget.amount,
                     description: widget.description,
                     customerName: widget.customerName,
-                    onPay: (method, upiId) =>
-                        _launch(method: method, upiId: upiId),
+                    onPay: (upiId) => _launch(upiId: upiId),
                     launched: _launched,
                   ),
       );
 }
 
-// ── Payment Summary Page ──────────────────────────────────────────────────────
+// ── Payment Summary Page ─────────────────────────────────────────────────────
 class _PaymentSummary extends StatefulWidget {
   const _PaymentSummary({
     required this.orderId,
@@ -430,7 +379,7 @@ class _PaymentSummary extends StatefulWidget {
   });
   final String orderId, paymentType, description, customerName;
   final double amount;
-  final void Function(String method, String? upiId) onPay;
+  final void Function(String? upiId) onPay;
   final bool launched;
 
   @override
@@ -438,7 +387,7 @@ class _PaymentSummary extends StatefulWidget {
 }
 
 class _PaymentSummaryState extends State<_PaymentSummary> {
-  String _selectedMethod = 'upi'; // UPI selected by default
+  String _selectedMethod = 'upi';
   final TextEditingController _upiController = TextEditingController();
   String? _upiError;
 
@@ -452,14 +401,6 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
 
   void _select(String id) => setState(() => _selectedMethod = id);
 
-  String get _methodLabel => switch (_selectedMethod) {
-        'card' => 'Card',
-        'netbanking' => 'Net Banking',
-        'wallet' => 'Wallet',
-        'emi' => 'EMI',
-        _ => 'UPI',
-      };
-
   void _pay() {
     if (widget.launched) return;
     final upiId = _upiController.text.trim();
@@ -470,14 +411,13 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
       return;
     }
     if (_upiError != null) setState(() => _upiError = null);
-    widget.onPay(_selectedMethod, _selectedMethod == 'upi' ? upiId : null);
+    widget.onPay(_selectedMethod == 'upi' ? upiId : null);
   }
 
   @override
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // ── Payment header ──────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -522,8 +462,11 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
               Divider(color: AppColors.navyLight.withValues(alpha: .6)),
               const SizedBox(height: 12),
               _SummaryRow('Customer', widget.customerName),
-              _SummaryRow('Payment option',
-                  widget.paymentType == 'advance' ? '25% advance' : 'Full balance'),
+              _SummaryRow(
+                  'Payment option',
+                  widget.paymentType == 'advance'
+                      ? '25% advance'
+                      : 'Full balance'),
               _SummaryRow('Description', widget.description),
               const SizedBox(height: 12),
               Divider(color: AppColors.navyLight.withValues(alpha: .6)),
@@ -545,13 +488,15 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
             ]),
           ),
           const SizedBox(height: 24),
-
-          // ── Payment methods info ─────────────────────────────────────────────
           const Text('Select a Payment Method',
               style: TextStyle(
                   color: AppColors.textLight,
                   fontWeight: FontWeight.w700,
                   fontSize: 14)),
+          const SizedBox(height: 6),
+          const Text(
+              'Choose the available payment method in Razorpay secure checkout.',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
           const SizedBox(height: 12),
           Row(children: [
             _PayMethod(Icons.account_balance_wallet_outlined, 'UPI / GPay',
@@ -559,8 +504,8 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
                 selected: _selectedMethod == 'upi',
                 onTap: () => _select('upi')),
             const SizedBox(width: 10),
-            _PayMethod(Icons.credit_card_outlined, 'Credit / Debit',
-                AppColors.info,
+            _PayMethod(
+                Icons.credit_card_outlined, 'Credit / Debit', AppColors.info,
                 selected: _selectedMethod == 'card',
                 onTap: () => _select('card')),
             const SizedBox(width: 10),
@@ -571,13 +516,13 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
           ]),
           const SizedBox(height: 12),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _PayMethod(Icons.phone_android_outlined, 'Wallets',
-                AppColors.warning,
+            _PayMethod(
+                Icons.phone_android_outlined, 'Wallets', AppColors.warning,
                 selected: _selectedMethod == 'wallet',
                 onTap: () => _select('wallet')),
             const SizedBox(width: 10),
-            _PayMethod(Icons.currency_rupee_outlined, 'EMI',
-                AppColors.textLight,
+            _PayMethod(
+                Icons.currency_rupee_outlined, 'EMI', AppColors.textLight,
                 selected: _selectedMethod == 'emi',
                 onTap: () => _select('emi')),
           ]),
@@ -601,8 +546,6 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
             ),
           ],
           const SizedBox(height: 28),
-
-          // ── Security badge ───────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -621,8 +564,6 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
             ]),
           ),
           const SizedBox(height: 28),
-
-          // ── Pay button ────────────────────────────────────────────────────────
           GestureDetector(
             onTap: widget.launched ? null : _pay,
             child: Container(
@@ -648,7 +589,7 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
                     color: AppColors.navyDeep, size: 18),
                 const SizedBox(width: 10),
                 Text(
-                  'Pay ₹${widget.amount.toStringAsFixed(0)} via $_methodLabel',
+                  'Continue to Razorpay · ₹${widget.amount.toStringAsFixed(0)}',
                   style: const TextStyle(
                     color: AppColors.navyDeep,
                     fontSize: 17,
@@ -691,9 +632,7 @@ class _ResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = isSuccess
         ? AppColors.success
-        : isPending
-            ? AppColors.warning
-            : AppColors.danger;
+        : (isPending ? AppColors.warning : AppColors.danger);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -709,9 +648,9 @@ class _ResultView extends StatelessWidget {
             child: Icon(
               isSuccess
                   ? Icons.check_circle_rounded
-                  : isPending
+                  : (isPending
                       ? Icons.hourglass_top_rounded
-                      : Icons.cancel_rounded,
+                      : Icons.cancel_rounded),
               color: statusColor,
               size: 52,
             ),
@@ -720,17 +659,11 @@ class _ResultView extends StatelessWidget {
           Text(
             isSuccess
                 ? 'Payment Successful!'
-                : isPending
-                    ? 'Payment Status Pending'
-                    : 'Payment Failed',
+                : (isPending ? 'Payment Status Pending' : 'Payment Failed'),
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              color: isSuccess
-                  ? AppColors.success
-                  : isPending
-                      ? AppColors.warning
-                      : AppColors.danger,
+              color: statusColor,
             ),
           ),
           const SizedBox(height: 10),
@@ -827,8 +760,7 @@ class _PayMethod extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
             decoration: BoxDecoration(
               color: selected ? AppColors.navyMid : AppColors.navyDark,
               borderRadius: BorderRadius.circular(10),

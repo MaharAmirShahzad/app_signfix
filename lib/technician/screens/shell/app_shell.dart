@@ -108,22 +108,25 @@ class _AppShellState extends State<AppShell> {
       ],
     ),
     body: SafeArea(child: IndexedStack(index: _index, children: _pages)),
-    bottomNavigationBar: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Container(
-        height: 70,
-        decoration: BoxDecoration(
-          color: AppColors.navyDark,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItem(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard', selected: _index == 0, color: AppColors.info, onTap: () => _goTo(0)),
-            _NavItem(icon: Icons.work_outline, selectedIcon: Icons.work, label: 'Jobs', selected: _index == 1, color: AppColors.info, onTap: () => _goTo(1)),
-            _NavItemBadge(icon: Icons.notifications_outlined, selectedIcon: Icons.notifications, label: 'Alerts', selected: _index == 2, color: AppColors.info, badge: _unread, onTap: () => _goTo(2)),
-            _NavItem(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile', selected: _index == 3, color: AppColors.info, onTap: () => _goTo(3)),
-          ],
+    bottomNavigationBar: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Container(
+          height: 70,
+          decoration: BoxDecoration(
+            color: AppColors.navyDark,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard', selected: _index == 0, color: AppColors.info, onTap: () => _goTo(0)),
+              _NavItem(icon: Icons.work_outline, selectedIcon: Icons.work, label: 'Jobs', selected: _index == 1, color: AppColors.info, onTap: () => _goTo(1)),
+              _NavItemBadge(icon: Icons.notifications_outlined, selectedIcon: Icons.notifications, label: 'Alerts', selected: _index == 2, color: AppColors.info, badge: _unread, onTap: () => _goTo(2)),
+              _NavItem(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile', selected: _index == 3, color: AppColors.info, onTap: () => _goTo(3)),
+            ],
+          ),
         ),
       ),
     ),

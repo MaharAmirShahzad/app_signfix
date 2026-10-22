@@ -303,7 +303,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             height: 16,
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: AppColors.gold))
-                        : const Icon(Icons.refresh_rounded),
+                        : const Icon(Icons.sms_outlined),
                     label: const Text('Resend OTP'),
                   )
                 : TextButton(

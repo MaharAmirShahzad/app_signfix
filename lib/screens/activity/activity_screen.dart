@@ -7,9 +7,15 @@ import '../payment/payment_screen.dart';
 import '../orders/order_detail_screen.dart';
 
 class ActivityScreen extends StatefulWidget {
-  const ActivityScreen({super.key, required this.api, this.tabNotifier});
+  const ActivityScreen({
+    super.key,
+    required this.api,
+    this.tabNotifier,
+    this.refreshNotifier,
+  });
   final ApiClient api;
   final ValueNotifier<int>? tabNotifier;
+  final ValueNotifier<int>? refreshNotifier;
   @override
   State<ActivityScreen> createState() => _ActivityScreenState();
 }
@@ -31,18 +37,23 @@ class _ActivityScreenState extends State<ActivityScreen>
     ]);
     // Listen to tab switch from home screen stat tiles
     widget.tabNotifier?.addListener(_onTabNotify);
+    widget.refreshNotifier?.addListener(_onRefreshNotify);
   }
 
   void _onTabNotify() {
     final idx = widget.tabNotifier?.value ?? 0;
     if (mounted && idx >= 0 && idx < 3) {
+      _load();
       _tab.animateTo(idx);
     }
   }
 
+  void _onRefreshNotify() => _load();
+
   @override
   void dispose() {
     widget.tabNotifier?.removeListener(_onTabNotify);
+    widget.refreshNotifier?.removeListener(_onRefreshNotify);
     _tab.dispose();
     super.dispose();
   }
@@ -56,21 +67,20 @@ class _ActivityScreenState extends State<ActivityScreen>
       widget.api.getQuotations(),
       widget.api.getPayments(),
     ]);
-    setState(() => _future = f);
+    setState(() {
+      _future = f;
+    });
   }
 
   void _handleAuthError() async {
     await widget.api.logout();
-    if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+    }
   }
 
   void _reload() {
-    setState(() => _future = Future.wait([
-      widget.api.orders(),
-      widget.api.services(),
-      widget.api.getQuotations(),
-      widget.api.getPayments(),
-    ]));
+    _load();
   }
 
   Future<void> _refresh() async {
@@ -80,113 +90,157 @@ class _ActivityScreenState extends State<ActivityScreen>
 
   Color _statusColor(String s) {
     switch (s) {
-      case 'completed': case 'delivered': return AppColors.success;
-      case 'in_production': case 'work_in_progress': case 'accepted': return AppColors.gold;
-      case 'pending': case 'assigned': return AppColors.warning;
-      case 'cancelled': return AppColors.danger;
-      default: return AppColors.textMuted;
+      case 'completed':
+      case 'delivered':
+        return AppColors.success;
+      case 'in_production':
+      case 'work_in_progress':
+      case 'accepted':
+        return AppColors.gold;
+      case 'pending':
+      case 'assigned':
+        return AppColors.warning;
+      case 'cancelled':
+        return AppColors.danger;
+      default:
+        return AppColors.textMuted;
     }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.navyDeep,
-    appBar: AppBar(
-      backgroundColor: AppColors.navyDark,
-      title: const Text('My Activity',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800)),
-      automaticallyImplyLeading: false,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded, color: AppColors.gold),
-          onPressed: _reload,
+        backgroundColor: AppColors.navyDeep,
+        appBar: AppBar(
+          backgroundColor: AppColors.navyDark,
+          title: const Text('My Activity',
+              style: TextStyle(
+                  color: AppColors.white, fontWeight: FontWeight.w800)),
+          automaticallyImplyLeading: false,
         ),
-      ],
-    ),
-    body: Column(
-    children: [
-      // Tab bar — dark theme
-      Container(
-        color: AppColors.navyDark,
-        child: TabBar(
-          controller: _tab,
-          labelColor: AppColors.gold,
-          unselectedLabelColor: AppColors.textMuted,
-          indicatorColor: AppColors.gold,
-          indicatorWeight: 2.5,
-          tabs: const [
-            Tab(text: 'My Orders'),
-            Tab(text: 'My Services'),
-            Tab(text: 'Quotations'),
+        body: Column(
+          children: [
+            // Tab bar — dark theme
+            Container(
+              color: AppColors.navyDark,
+              child: TabBar(
+                controller: _tab,
+                labelColor: AppColors.gold,
+                unselectedLabelColor: AppColors.textMuted,
+                indicatorColor: AppColors.gold,
+                indicatorWeight: 2.5,
+                tabs: const [
+                  Tab(text: 'My Orders'),
+                  Tab(text: 'My Services'),
+                  Tab(text: 'Quotations'),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: FutureBuilder<List<List<dynamic>>>(
+                future: _future,
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Center(
+                        child:
+                            CircularProgressIndicator(color: AppColors.gold));
+                  }
+                  if (snap.hasError) {
+                    final errMsg = snap.error.toString();
+                    final isAuthError =
+                        errMsg.toLowerCase().contains('authentication') ||
+                            errMsg.toLowerCase().contains('unauthorized') ||
+                            errMsg.toLowerCase().contains('401');
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: isAuthError
+                                  ? AppColors.warning.withValues(alpha: .1)
+                                  : AppColors.danger.withValues(alpha: .1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: isAuthError
+                                      ? AppColors.warning
+                                      : AppColors.danger,
+                                  width: 2),
+                            ),
+                            child: Icon(
+                                isAuthError
+                                    ? Icons.lock_outline_rounded
+                                    : Icons.error_outline_rounded,
+                                color: isAuthError
+                                    ? AppColors.warning
+                                    : AppColors.danger,
+                                size: 40),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                              isAuthError
+                                  ? 'Session Expired'
+                                  : 'Could Not Load Activity',
+                              style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 8),
+                          Text(
+                              isAuthError
+                                  ? 'Your session has expired. Please sign in again.'
+                                  : 'Unable to load data. Please try again.',
+                              style: const TextStyle(
+                                  color: AppColors.textLight, fontSize: 13),
+                              textAlign: TextAlign.center),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: isAuthError
+                                ? FilledButton.icon(
+                                    onPressed: _handleAuthError,
+                                    icon: const Icon(Icons.login_rounded),
+                                    label: const Text('Sign In Again'))
+                                : OutlinedButton(
+                                    onPressed: _reload,
+                                    child: const Text('Try Again')),
+                          ),
+                        ]),
+                      ),
+                    );
+                  }
+                  final orders = snap.data![0];
+                  final services = snap.data![1];
+                  final quotations = snap.data![2];
+                  final payments = snap.data![3];
+                  return TabBarView(
+                    controller: _tab,
+                    children: [
+                      _OrdersList(
+                          orders: orders,
+                          statusColor: _statusColor,
+                          api: widget.api,
+                          onRefresh: _refresh),
+                      _ServicesList(
+                          services: services,
+                          statusColor: _statusColor,
+                          onRefresh: _refresh),
+                      _QuotationsList(
+                        quotations: quotations,
+                        payments: payments,
+                        api: widget.api,
+                        onRefresh: _refresh,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           ],
         ),
-      ),
-
-      Expanded(
-        child: FutureBuilder<List<List<dynamic>>>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator(color: AppColors.gold));
-            }
-            if (snap.hasError) {
-              final errMsg = snap.error.toString();
-              final isAuthError = errMsg.toLowerCase().contains('authentication') ||
-                  errMsg.toLowerCase().contains('unauthorized') ||
-                  errMsg.toLowerCase().contains('401');
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isAuthError ? AppColors.warning.withValues(alpha: .1) : AppColors.danger.withValues(alpha: .1),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isAuthError ? AppColors.warning : AppColors.danger, width: 2),
-                      ),
-                      child: Icon(isAuthError ? Icons.lock_outline_rounded : Icons.error_outline_rounded,
-                          color: isAuthError ? AppColors.warning : AppColors.danger, size: 40),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(isAuthError ? 'Session Expired' : 'Could Not Load Activity',
-                        style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    Text(isAuthError ? 'Your session has expired. Please sign in again.' : 'Unable to load data. Please try again.',
-                        style: const TextStyle(color: AppColors.textLight, fontSize: 13), textAlign: TextAlign.center),
-                    const SizedBox(height: 24),
-                    SizedBox(width: double.infinity,
-                      child: isAuthError
-                          ? FilledButton.icon(onPressed: _handleAuthError, icon: const Icon(Icons.login_rounded), label: const Text('Sign In Again'))
-                          : OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh_rounded), label: const Text('Try Again')),
-                    ),
-                  ]),
-                ),
-              );
-            }
-            final orders   = snap.data![0];
-            final services = snap.data![1];
-            final quotations = snap.data![2];
-            final payments = snap.data![3];
-            return TabBarView(
-              controller: _tab,
-              children: [
-                _OrdersList(orders: orders, statusColor: _statusColor, api: widget.api, onRefresh: _refresh),
-                _ServicesList(services: services, statusColor: _statusColor, onRefresh: _refresh),
-                _QuotationsList(
-                  quotations: quotations,
-                  payments: payments,
-                  api: widget.api,
-                  onRefresh: _refresh,
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    ],
-    ),
-  );
+      );
 }
 
 // ── Orders List ───────────────────────────────────────────────────────────────
@@ -235,9 +289,8 @@ class _QuotationsList extends StatelessWidget {
             customerName: profile['name']?.toString() ?? 'Customer',
             customerEmail:
                 profile['email']?.toString() ?? 'customer@signfix.in',
-            customerPhone: (profile['mobile'] ?? profile['phone'])
-                    ?.toString() ??
-                '',
+            customerPhone:
+                (profile['mobile'] ?? profile['phone'])?.toString() ?? '',
             description: 'Approved final quotation',
             onSuccess: (_) {},
             onFailure: (_) {},
@@ -263,19 +316,20 @@ class _QuotationsList extends StatelessWidget {
       backgroundColor: AppColors.navyDark,
       onRefresh: onRefresh,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: quotations.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          final quotation =
-              quotations[index] as Map<String, dynamic>;
+          final quotation = quotations[index] as Map<String, dynamic>;
           final status = quotation['status']?.toString() ?? 'sent';
           final actions = quotation['availableActions'] as List? ?? [];
           final payment = quotation['payments'] as Map? ?? {};
           final options = payment['options'] as List? ?? [];
           final quotePayments = payments
               .whereType<Map<String, dynamic>>()
-              .where((entry) => entry['quotationNo'] == quotation['quotationNo'])
+              .where(
+                  (entry) => entry['quotationNo'] == quotation['quotationNo'])
               .toList();
           final paidAmount = quotePayments
               .where((entry) => [
@@ -453,13 +507,14 @@ class _OrdersList extends StatelessWidget {
       backgroundColor: AppColors.navyDark,
       onRefresh: onRefresh, // ✅ already async Future<void>
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: orders.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, i) {
-          final o      = orders[i] as Map<String, dynamic>;
+          final o = orders[i] as Map<String, dynamic>;
           final status = o['status']?.toString() ?? 'pending';
-          final color  = statusColor(status);
+          final color = statusColor(status);
           return _OrderCard(o: o, color: color, api: api, onRefresh: onRefresh);
         },
       ),
@@ -468,7 +523,11 @@ class _OrdersList extends StatelessWidget {
 }
 
 class _OrderCard extends StatelessWidget {
-  const _OrderCard({required this.o, required this.color, required this.api, required this.onRefresh});
+  const _OrderCard(
+      {required this.o,
+      required this.color,
+      required this.api,
+      required this.onRefresh});
   final Map<String, dynamic> o;
   final Color color;
   final ApiClient api;
@@ -487,11 +546,14 @@ class _OrderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => OrderDetailScreen(api: api, orderId: o['id'].toString())),
+          MaterialPageRoute(
+              builder: (_) =>
+                  OrderDetailScreen(api: api, orderId: o['id'].toString())),
         ).then((_) => onRefresh()),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Container(
                 padding: const EdgeInsets.all(9),
@@ -499,31 +561,45 @@ class _OrderCard extends StatelessWidget {
                   color: AppColors.gold.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.storefront_outlined, color: AppColors.gold, size: 18),
+                child: const Icon(Icons.storefront_outlined,
+                    color: AppColors.gold, size: 18),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(o['id']?.toString() ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.gold, fontSize: 13)),
-                Text(o['product']?.toString() ?? 'Sign Board',
-                    style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.white)),
-              ])),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(o['id']?.toString() ?? '',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.gold,
+                            fontSize: 13)),
+                    Text(o['product']?.toString() ?? 'Sign Board',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.white)),
+                  ])),
               _Badge(humanize(status), color),
             ]),
             const Divider(height: 18, color: AppColors.navyLight),
             Row(children: [
-              _Detail(Icons.straighten, '${o['length'] ?? 0}×${o['width'] ?? 0} ft'),
+              _Detail(Icons.straighten,
+                  '${o['length'] ?? 0}×${o['width'] ?? 0} ft'),
               const SizedBox(width: 16),
               _Detail(Icons.layers_outlined, o['material']?.toString() ?? ''),
               const Spacer(),
               Text(money(o['estimatedPrice']),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.gold)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: AppColors.gold)),
             ]),
             if ((o['createdAt'] ?? '').toString().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text('Placed: ${o['createdAt']}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textMuted)),
               ),
           ]),
         ),
@@ -556,15 +632,20 @@ class _ServicesList extends StatelessWidget {
       backgroundColor: AppColors.navyDark,
       onRefresh: onRefresh, // ✅ already async Future<void>
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: services.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, i) {
-          final s        = services[i] as Map<String, dynamic>;
-          final status   = s['status']?.toString() ?? 'pending';
-          final color    = statusColor(status);
+          final s = services[i] as Map<String, dynamic>;
+          final status = s['status']?.toString() ?? 'pending';
+          final color = statusColor(status);
           final priority = s['priority']?.toString() ?? 'normal';
-          return _ServiceCard(s: s, color: color, priority: priority, onTap: () => _showDetail(context, s));
+          return _ServiceCard(
+              s: s,
+              color: color,
+              priority: priority,
+              onTap: () => _showDetail(context, s));
         },
       ),
     );
@@ -585,12 +666,19 @@ class _ServicesList extends StatelessWidget {
           controller: ctrl,
           padding: const EdgeInsets.all(24),
           children: [
-            Center(child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.navyLight, borderRadius: BorderRadius.circular(2)))),
+            Center(
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: AppColors.navyLight,
+                        borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
             Text(s['id']?.toString() ?? '',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.gold)),
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.gold)),
             const SizedBox(height: 4),
             Text(s['category']?.toString() ?? '',
                 style: const TextStyle(color: AppColors.textLight)),
@@ -600,7 +688,10 @@ class _ServicesList extends StatelessWidget {
             if ((s['statusHistory'] as List? ?? []).isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text('Status History',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.white)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: AppColors.white)),
               const SizedBox(height: 10),
               ...(s['statusHistory'] as List).map((h) {
                 final m = h as Map<String, dynamic>;
@@ -609,10 +700,14 @@ class _ServicesList extends StatelessWidget {
                   child: Row(children: [
                     const Icon(Icons.history, size: 16, color: AppColors.gold),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(humanize(m['status'] ?? ''),
-                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.white))),
+                    Expanded(
+                        child: Text(humanize(m['status'] ?? ''),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.white))),
                     Text(m['time'] ?? '',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textMuted)),
                   ]),
                 );
               }),
@@ -625,7 +720,11 @@ class _ServicesList extends StatelessWidget {
 }
 
 class _ServiceCard extends StatelessWidget {
-  const _ServiceCard({required this.s, required this.color, required this.priority, required this.onTap});
+  const _ServiceCard(
+      {required this.s,
+      required this.color,
+      required this.priority,
+      required this.onTap});
   final Map<String, dynamic> s;
   final Color color;
   final String priority;
@@ -645,7 +744,8 @@ class _ServiceCard extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Container(
                 padding: const EdgeInsets.all(9),
@@ -653,15 +753,24 @@ class _ServiceCard extends StatelessWidget {
                   color: AppColors.accent.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.build_outlined, color: AppColors.accent, size: 18),
+                child: const Icon(Icons.build_outlined,
+                    color: AppColors.accent, size: 18),
               ),
               const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(s['id']?.toString() ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.accent, fontSize: 13)),
-                Text(s['category']?.toString() ?? 'Service',
-                    style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.white)),
-              ])),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(s['id']?.toString() ?? '',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.accent,
+                            fontSize: 13)),
+                    Text(s['category']?.toString() ?? 'Service',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.white)),
+                  ])),
               if (priority == 'emergency' || priority == 'high')
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -671,21 +780,26 @@ class _ServiceCard extends StatelessWidget {
             ]),
             const Divider(height: 18, color: AppColors.navyLight),
             Text(s['description']?.toString() ?? '',
-                maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppColors.textLight, fontSize: 13)),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(color: AppColors.textLight, fontSize: 13)),
             const SizedBox(height: 8),
             Row(children: [
-              const Icon(Icons.person_outline, size: 14, color: AppColors.textMuted),
+              const Icon(Icons.person_outline,
+                  size: 14, color: AppColors.textMuted),
               const SizedBox(width: 4),
               Text(
                 s['technicianName'] != null
                     ? 'Tech: ${s['technicianName']}'
                     : 'Not assigned yet',
-                style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                style:
+                    const TextStyle(fontSize: 12, color: AppColors.textMuted),
               ),
               const Spacer(),
               Text(s['createdAt']?.toString() ?? '',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textMuted)),
             ]),
           ]),
         ),
@@ -701,14 +815,16 @@ class _Badge extends StatelessWidget {
   final Color color;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: .12),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: color.withValues(alpha: .3)),
-    ),
-    child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: .3)),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+      );
 }
 
 class _Detail extends StatelessWidget {
@@ -717,10 +833,11 @@ class _Detail extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Row(children: [
-    Icon(icon, size: 14, color: AppColors.textMuted),
-    const SizedBox(width: 4),
-    Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
-  ]);
+        Icon(icon, size: 14, color: AppColors.textMuted),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+      ]);
 }
 
 class _EmptyState extends StatelessWidget {
@@ -729,12 +846,12 @@ class _EmptyState extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Center(
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 64, color: AppColors.navyLight),
-      const SizedBox(height: 14),
-      Text(label,
-          style: const TextStyle(color: AppColors.textMuted, height: 1.5),
-          textAlign: TextAlign.center),
-    ]),
-  );
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 64, color: AppColors.navyLight),
+          const SizedBox(height: 14),
+          Text(label,
+              style: const TextStyle(color: AppColors.textMuted, height: 1.5),
+              textAlign: TextAlign.center),
+        ]),
+      );
 }

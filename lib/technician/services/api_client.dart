@@ -5,9 +5,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode});
+  const ApiException(this.message, {this.statusCode, this.field, this.code});
   final String message;
   final int? statusCode;
+  final String? field;
+  final String? code;
   @override
   String toString() => message;
 }
@@ -505,6 +507,8 @@ class TechnicianApi {
     }
     if (r.statusCode < 200 || r.statusCode >= 300) {
       final m = d is Map ? (d['error'] ?? d['message']) : null;
+      final field = d is Map ? d['field']?.toString() : null;
+      final code = d is Map ? d['code']?.toString() : null;
       String errorMsg = m?.toString() ?? 'Request failed (${r.statusCode}).';
       // Auto-clear token on 401
       if (r.statusCode == 401) {
@@ -514,7 +518,6 @@ class TechnicianApi {
           prefs.remove('tech_name');
           prefs.remove('tech_photo');
         });
-        throw const ApiException('Authentication required', statusCode: 401);
       }
       if (d is Map && d['details'] != null) {
         final details = d['details'];
@@ -525,7 +528,12 @@ class TechnicianApi {
           errorMsg = '$errorMsg — $fields';
         }
       }
-      throw ApiException(errorMsg, statusCode: r.statusCode);
+      throw ApiException(
+        errorMsg,
+        statusCode: r.statusCode,
+        field: field,
+        code: code,
+      );
     }
     if (d is! Map<String, dynamic>) {
       throw ApiException(

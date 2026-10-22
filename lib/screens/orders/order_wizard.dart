@@ -11,8 +11,9 @@ import '../../widgets/common.dart';
 import 'text_designer_screen.dart';
 
 class OrderWizard extends StatefulWidget {
-  const OrderWizard({super.key, required this.api});
+  const OrderWizard({super.key, required this.api, this.onOrderSubmitted});
   final ApiClient api;
+  final VoidCallback? onOrderSubmitted;
   @override
   State<OrderWizard> createState() => _OrderWizardState();
 }
@@ -37,32 +38,25 @@ class _OrderWizardState extends State<OrderWizard> {
 
   // ── Step 4 Payment state ──────────────────────────────────────────────────
   late final Razorpay _razorpay;
-  bool   _payProcessing  = false;
-  bool   _payLaunched    = false;
+  bool _payProcessing = false;
+  bool _payLaunched = false;
   String? _payIntentId;
   String? _payError;
-  bool   _payPending     = false;
-  bool   _paySuccess     = false;
-  String _payMethod      = 'upi';
+  bool _payPending = false;
+  bool _paySuccess = false;
+  String _payMethod = 'upi';
   String _ledWatt = '10W';
   String? _sideWalling;
-  final  _upiController  = TextEditingController();
+  final _upiController = TextEditingController();
   String? _upiError;
   Map<String, dynamic>? _customerProfile;
-  static final _upiRegex =
-      RegExp(r'^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,}$');
+  static final _upiRegex = RegExp(r'^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,}$');
 
   // Payment type
   String _paymentType = 'full';
 
-  // Auto-generated quotationNo from backend after order creation
-  String _autoQuotationNo = '';
-
-  // Card payment controllers
-  final _cardNumberCtrl = TextEditingController();
-  final _expiryCtrl     = TextEditingController();
-  final _cvvCtrl        = TextEditingController();
-  final _cardNameCtrl   = TextEditingController();
+  String _submittedOrderNo = '';
+  bool _orderSubmitted = false;
 
   // Net banking
   String? _selectedBank;
@@ -108,7 +102,16 @@ class _OrderWizardState extends State<OrderWizard> {
     'Custom'
   ];
   static const _wattOptions = [
-    '5W', '10W', '12W', '15W', '18W', '20W', '24W', '30W', '40W', '50W'
+    '5W',
+    '10W',
+    '12W',
+    '15W',
+    '18W',
+    '20W',
+    '24W',
+    '30W',
+    '40W',
+    '50W'
   ];
 
   @override
@@ -116,7 +119,7 @@ class _OrderWizardState extends State<OrderWizard> {
     super.initState();
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR,   _onPayError);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPayError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onPayWallet);
   }
 
@@ -124,10 +127,6 @@ class _OrderWizardState extends State<OrderWizard> {
   void dispose() {
     _razorpay.clear();
     _upiController.dispose();
-    _cardNumberCtrl.dispose();
-    _expiryCtrl.dispose();
-    _cvvCtrl.dispose();
-    _cardNameCtrl.dispose();
     for (final c in [length, width, quantity, address]) {
       c.dispose();
     }
@@ -197,12 +196,24 @@ class _OrderWizardState extends State<OrderWizard> {
   // until admin adds them to the products catalog
   String get _backendProductName {
     const mapping = {
-      'Module LED Letters':   'LED Sign Board',
-      'Channel LED Letters':  'LED Sign Board',
-      'Bata Type LED Letters':'LED Sign Board',
+      'Module LED Letters': 'LED Sign Board',
+      'Channel LED Letters': 'LED Sign Board',
+      'Bata Type LED Letters': 'LED Sign Board',
     };
     return mapping[type] ?? type;
   }
+
+  Map<String, dynamic> _pricingInput() => {
+        'product': _backendProductName,
+        'length': double.parse(length.text),
+        'width': double.parse(width.text),
+        'quantity': int.parse(quantity.text),
+        'material': material,
+        'lighting': lighting,
+        'installation': installation,
+        'transportation': transportation,
+        'ledWatt': _ledWatt,
+      };
 
   Future<void> _calculate() async {
     final l = double.tryParse(length.text);
@@ -219,15 +230,7 @@ class _OrderWizardState extends State<OrderWizard> {
     setState(() => loading = true);
     try {
       quote = await widget.api.calculate({
-        'product': _backendProductName,
-        'length': l,
-        'width': w,
-        'quantity': q,
-        'material': material,
-        'lighting': lighting,
-        'installation': installation,
-        'transportation': transportation,
-        'ledWatt': _ledWatt,
+        ..._pricingInput(),
         if (_textDesign != null) 'signText': _textDesign!.text,
         if (_textDesign != null) 'signFont': _textDesign!.fontFamily,
       });
@@ -239,22 +242,14 @@ class _OrderWizardState extends State<OrderWizard> {
     }
   }
 
-  Future<void> _submitOrder() async {
-    if (quote == null) return;
+  Future<bool> _submitOrder() async {
+    if (quote == null) return false;
     setState(() => loading = true);
     try {
       final order = await widget.api.createOrder({
-        'product': _backendProductName,
-        'length': double.parse(length.text),
-        'width': double.parse(width.text),
-        'quantity': int.parse(quantity.text),
-        'material': material,
-        'lighting': lighting,
-        'installation': installation,
-        'transportation': transportation,
+        ..._pricingInput(),
         'address': address.text.trim(),
         'estimatedPrice': quote!['estimatedPrice'],
-        'ledWatt': _ledWatt,
         if (_sideWalling != null) 'sideWalling': _sideWalling!,
         if (_textDesign != null) 'signText': _textDesign!.text,
         if (_textDesign != null) 'signFont': _textDesign!.fontFamily,
@@ -262,70 +257,71 @@ class _OrderWizardState extends State<OrderWizard> {
           'signColor': _textDesign!.color.toARGB32().toRadixString(16),
       });
       final id = order['id']?.toString();
-      // Save quotationNo returned by backend (auto-created with order)
-      final quotationNo = order['quotationNo']?.toString() ?? '';
       if (id == null || id.isEmpty) {
         throw const ApiException(
           'The server did not return the new order number.',
         );
       }
-      // Store quotationNo for payment intent
-      setState(() => _autoQuotationNo = quotationNo);
-      if (mounted) {
-        await showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-                  backgroundColor: AppColors.navyDark,
-                  icon: const Icon(Icons.check_circle_rounded,
-                      color: AppColors.success, size: 48),
-                  title: const Text('Order Saved',
-                      style: TextStyle(color: AppColors.white)),
-                  content: Text(
-                      '$id submitted for admin review. Your payment has been recorded.',
-                      style: const TextStyle(color: AppColors.textLight),
-                      textAlign: TextAlign.center),
-                  actions: [
-                    FilledButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _reset();
-                        },
-                        child: const Text('OK'))
-                  ],
-                ));
-      }
+      if (!mounted) return false;
+      setState(() {
+        _submittedOrderNo = id;
+        _orderSubmitted = true;
+        _payError = null;
+        _payPending = false;
+      });
+      return true;
     } catch (e) {
-      if (mounted) _err(e);
+      debugPrint('OrderWizard order submission failed: $e');
+      if (mounted) {
+        setState(() {
+          _payError = e.toString();
+          _payPending = false;
+        });
+      }
+      return false;
     } finally {
       if (mounted) setState(() => loading = false);
     }
   }
 
-  void _reset() => setState(() {
-        step = 0;
-        quote = null;
-        _textDesign = null;
-        _payProcessing = false;
-        _payLaunched   = false;
-        _payIntentId   = null;
-        _payError      = null;
-        _payPending    = false;
-        _paySuccess    = false;
-        _upiController.clear();
-        _upiError      = null;
-        _customerProfile = null;
-        _ledWatt = '10W';
-        _sideWalling = null;
-        _paymentType = 'full';
-        _autoQuotationNo = '';
-        _cardNumberCtrl.clear();
-        _expiryCtrl.clear();
-        _cvvCtrl.clear();
-        _cardNameCtrl.clear();
-        _selectedBank = null;
-        _selectedWallet = null;
-        _emiMonths = null;
-      });
+  void _reset() {
+    _debounce?.cancel();
+    _addressFocus.unfocus();
+    setState(() {
+      step = 0;
+      type = 'LED Sign Board';
+      material = 'Acrylic';
+      lighting = 'LED';
+      length.text = '10';
+      width.text = '3';
+      quantity.text = '1';
+      address.clear();
+      installation = true;
+      transportation = true;
+      quote = null;
+      _textDesign = null;
+      _suggestions = [];
+      _loadingSuggestions = false;
+      _showSuggestions = false;
+      _payProcessing = false;
+      _payLaunched = false;
+      _payIntentId = null;
+      _payError = null;
+      _payPending = false;
+      _paySuccess = false;
+      _upiController.clear();
+      _upiError = null;
+      _customerProfile = null;
+      _ledWatt = '10W';
+      _sideWalling = null;
+      _paymentType = 'full';
+      _submittedOrderNo = '';
+      _orderSubmitted = false;
+      _selectedBank = null;
+      _selectedWallet = null;
+      _emiMonths = null;
+    });
+  }
 
   // ── Payment methods ──────────────────────────────────────────────────────
 
@@ -335,7 +331,15 @@ class _OrderWizardState extends State<OrderWizard> {
   }
 
   Future<void> _payAndSubmit() async {
-    if (_payLaunched || _payProcessing) return;
+    debugPrint(
+      'OrderWizard payment requested: method=$_payMethod, '
+      'orderSubmitted=$_orderSubmitted, hasOrderNo=${_submittedOrderNo.isNotEmpty}',
+    );
+    if (_payLaunched || _payProcessing) {
+      debugPrint(
+          'OrderWizard payment ignored: another payment is in progress.');
+      return;
+    }
 
     // Validate based on selected payment method
     if (_payMethod == 'upi') {
@@ -344,35 +348,16 @@ class _OrderWizardState extends State<OrderWizard> {
         setState(() => _upiError = 'Enter a valid UPI ID (e.g. username@bank)');
         return;
       }
-    } else if (_payMethod == 'card') {
-      final cardNum = _cardNumberCtrl.text.replaceAll(' ', '');
-      final expiry  = _expiryCtrl.text.trim();
-      final cvv     = _cvvCtrl.text.trim();
-      final name    = _cardNameCtrl.text.trim();
-      if (cardNum.length != 16 || !RegExp(r'^[0-9]{16}$').hasMatch(cardNum)) {
-        setState(() => _payError = 'Enter a valid 16-digit card number.');
-        return;
-      }
-      if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(expiry)) {
-        setState(() => _payError = 'Enter expiry as MM/YY.');
-        return;
-      }
-      if (cvv.length != 3 || !RegExp(r'^[0-9]{3}$').hasMatch(cvv)) {
-        setState(() => _payError = 'Enter a valid 3-digit CVV.');
-        return;
-      }
-      if (name.isEmpty) {
-        setState(() => _payError = 'Enter the cardholder name.');
-        return;
-      }
     } else if (_payMethod == 'netbanking') {
       if (_selectedBank == null) {
-        setState(() => _payError = 'Please select a bank.');
+        setState(() => _payError =
+            'Please select a bank. You will enter your banking details securely in Razorpay.');
         return;
       }
     } else if (_payMethod == 'wallet') {
       if (_selectedWallet == null) {
-        setState(() => _payError = 'Please select a wallet.');
+        setState(() => _payError =
+            'Please select a wallet. You will authorize it securely in Razorpay.');
         return;
       }
     } else if (_payMethod == 'emi') {
@@ -386,162 +371,196 @@ class _OrderWizardState extends State<OrderWizard> {
 
     setState(() {
       _payProcessing = true;
-      _payLaunched   = false;
-      _payIntentId   = null;
-      _payError      = null;
-      _payPending    = false;
-      _paySuccess    = false;
+      _payLaunched = false;
+      _payIntentId = null;
+      _payError = null;
+      _payPending = false;
+      _paySuccess = false;
     });
 
     try {
+      if (!_orderSubmitted) {
+        debugPrint('OrderWizard creating order before launching payment.');
+        final submitted = await _submitOrder();
+        if (!submitted || !mounted) {
+          if (mounted) setState(() => _payProcessing = false);
+          return;
+        }
+      }
+
+      if (!mounted) return;
+      if (_submittedOrderNo.isEmpty) {
+        setState(() {
+          _payProcessing = false;
+          _payError =
+              'The server did not return the order number needed to start payment. Please contact support.';
+          _payPending = true;
+        });
+        return;
+      }
+
+      debugPrint('OrderWizard loading customer profile for Razorpay checkout.');
       final profile = await _getProfile();
       final estimatedPrice =
           (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
       final payAmount =
           _paymentType == 'advance' ? estimatedPrice * 0.25 : estimatedPrice;
+      debugPrint(
+        'OrderWizard creating payment intent: type=$_paymentType, '
+        'amountRupees=$payAmount.',
+      );
 
-      // ── Step 1: Create order first if not done yet ───────────────────────
-      // Order must exist before payment intent — backend auto-creates quotation
-      if (_autoQuotationNo.isEmpty) {
-        await _submitOrder();
-        // If submitOrder failed or quotationNo still empty, stop
-        if (_autoQuotationNo.isEmpty) {
-          setState(() {
-            _payProcessing = false;
-            _payError = 'Could not create order. Please try again.';
-          });
-          return;
-        }
-      }
-
-      // ── Step 2: Create payment intent with the real quotationNo ──────────
-      final intent = await widget.api.createPaymentIntent({
-        'quotationNo': _autoQuotationNo,
+      final intent = await widget.api.createOrderPaymentIntent({
+        'orderNo': _submittedOrderNo,
         'type': _paymentType,
         'amount': payAmount,
-        'idempotencyKey':
-            '${DateTime.now().microsecondsSinceEpoch}-'
+        'idempotencyKey': '${DateTime.now().microsecondsSinceEpoch}-'
             '${Random.secure().nextInt(1 << 32).toRadixString(16)}',
       });
+      debugPrint('OrderWizard payment intent response received.');
 
-      final intentId       = intent['id']?.toString();
-      final checkoutValue  = intent['checkout'];
+      final intentId = intent['id']?.toString();
+      final checkoutValue = intent['checkout'];
       if (intentId == null || intentId.isEmpty || checkoutValue is! Map) {
         throw const ApiException(
           'The server did not return a valid payment intent.',
         );
       }
-      final checkout        = Map<String, dynamic>.from(checkoutValue);
-      final keyId           = checkout['keyId']?.toString();
+      final checkout = Map<String, dynamic>.from(checkoutValue);
+      final keyId = checkout['keyId']?.toString();
       final providerOrderId = checkout['orderId']?.toString();
-      final checkoutAmount  = checkout['amount'];
-      final currency        = checkout['currency']?.toString();
-      if (keyId == null || keyId.isEmpty ||
-          providerOrderId == null || providerOrderId.isEmpty ||
-          checkoutAmount is! num || checkoutAmount <= 0 ||
-          currency == null || currency.isEmpty) {
+      final checkoutAmount = checkout['amount'];
+      final currency = checkout['currency']?.toString();
+      if (keyId == null ||
+          keyId.isEmpty ||
+          providerOrderId == null ||
+          providerOrderId.isEmpty ||
+          checkoutAmount is! num ||
+          checkoutAmount <= 0 ||
+          currency == null ||
+          currency.isEmpty) {
         throw const ApiException(
           'The server returned incomplete Razorpay checkout details.',
         );
       }
+      final amountInPaise = checkoutAmount.round();
+      if (checkoutAmount != amountInPaise || amountInPaise <= 0) {
+        throw const ApiException(
+          'The server returned an invalid Razorpay amount.',
+        );
+      }
+      debugPrint(
+        'OrderWizard opening Razorpay: currency=$currency, '
+        'amountPaise=$amountInPaise.',
+      );
 
       _payIntentId = intentId;
 
-      final upiId = _upiController.text.trim();
-
-      // ── FIX: Razorpay expects method as a STRING, not a Map ──────────────
-      // Wrong:  'method': {'upi': 1}   ← SDK ignores this silently
-      // Correct:'method': 'upi'        ← SDK pre-selects and deep-links
-      final String? razorpayMethod = switch (_payMethod) {
-        'upi'        => 'upi',
-        'card'       => 'card',
-        'netbanking' => 'netbanking',
-        'wallet'     => 'wallet',
-        'emi'        => 'emi',
-        _            => null,
+      final prefill = <String, dynamic>{
+        'name': profile['name']?.toString() ?? '',
+        'email': profile['email']?.toString() ?? '',
+        'contact': profile['phone']?.toString() ??
+            profile['mobile']?.toString() ??
+            '',
       };
 
-      // ── Wallet name → Razorpay wallet code mapping ────────────────────────
-      // Razorpay wallet codes: 'paytm', 'phonepe', 'googlepay', etc.
-      final String? walletCode = switch (_selectedWallet) {
-        'GPay'     => 'googlepay',
-        'PhonePe'  => 'phonepe',
-        'Paytm'    => 'paytm',
-        _          => null,
-      };
+      if (_payMethod == 'upi') {
+        prefill['method'] = 'upi';
+        final vpa = _upiController.text.trim();
+        if (vpa.isNotEmpty) {
+          prefill['vpa'] = vpa;
+        }
+      } else if (_payMethod == 'card') {
+        prefill['method'] = 'card';
+      } else if (_payMethod == 'netbanking') {
+        prefill['method'] = 'netbanking';
+        if (_selectedBank != null) {
+          const bankMap = {
+            'SBI': 'SBIN',
+            'HDFC Bank': 'HDFC',
+            'ICICI Bank': 'ICIC',
+            'Axis Bank': 'UTIB',
+            'Kotak Mahindra': 'KKBK',
+            'Punjab National Bank': 'PUNB_R',
+            'Bank of Baroda': 'BARB_R',
+            'Canara Bank': 'CNRB',
+            'Yes Bank': 'YESB',
+            'IDBI Bank': 'IBKL',
+          };
+          final bankCode = bankMap[_selectedBank];
+          if (bankCode != null) prefill['bank'] = bankCode;
+        }
+      } else if (_payMethod == 'wallet') {
+        prefill['method'] = 'wallet';
+        if (_selectedWallet != null) {
+          prefill['wallet'] = _selectedWallet!.toLowerCase();
+        }
+      } else if (_payMethod == 'emi') {
+        prefill['method'] = 'emi';
+      }
 
-      // ── Bank name → Razorpay bank code mapping ────────────────────────────
-      // Razorpay netbanking bank codes (IFSC-style short codes)
-      final String? bankCode = switch (_selectedBank) {
-        'SBI'                   => 'SBIN',
-        'HDFC Bank'             => 'HDFC',
-        'ICICI Bank'            => 'ICIC',
-        'Axis Bank'             => 'UTIB',
-        'Kotak Mahindra'        => 'KKBK',
-        'Punjab National Bank'  => 'PUNB',
-        'Bank of Baroda'        => 'BARB',
-        'Canara Bank'           => 'CNRB',
-        'Yes Bank'              => 'YESB',
-        'IDBI Bank'             => 'IBKL',
-        _                       => null,
-      };
-
-      _razorpay.open({
-        'key':         keyId,
-        'amount':      checkoutAmount,
-        'currency':    currency,
-        'name':        checkout['name']?.toString() ?? 'SignFix',
+      final options = {
+        'key': keyId,
+        'amount': amountInPaise,
+        'currency': currency,
+        'name': checkout['name']?.toString() ?? 'SignFix',
         'description': checkout['description']?.toString() ?? type,
-        'order_id':    providerOrderId,
-        'prefill': {
-          'name':    profile['name']?.toString() ?? '',
-          'email':   profile['email']?.toString() ?? '',
-          'contact': profile['phone']?.toString() ?? profile['mobile']?.toString() ?? '',
-          // Prefill UPI VPA only when UPI is selected and user has entered an ID
-          if (_payMethod == 'upi' && upiId.isNotEmpty) 'vpa': upiId,
-          // Prefill bank code for net banking — guides Razorpay to correct bank page
-          if (_payMethod == 'netbanking' && bankCode != null) 'bank': bankCode,
-          // Prefill wallet code for wallet payments — triggers deep-link
-          if (_payMethod == 'wallet' && walletCode != null) 'wallet': walletCode,
-        },
-        // Pass method as STRING — this is the key fix
-        // Razorpay SDK uses this to pre-select the tab & trigger deep-links
-        if (razorpayMethod != null) 'method': razorpayMethod,
+        'order_id': providerOrderId,
+        'prefill': prefill,
         'theme': {
-          'color':          '#F5A623',
-          'backdrop_color': '#0D1B4B',
+          'color': '#F5A623',
         },
-        'notes': {
-          'signfix_order_wizard': 'true',
+        'modal': {
+          'ondismiss': () {
+            debugPrint('OrderWizard user closed Razorpay checkout.');
+            if (mounted) {
+              setState(() {
+                _payLaunched = false;
+                _payProcessing = false;
+              });
+            }
+          },
         },
-        'retry': {'enabled': true, 'max_count': 3},
-        'send_sms_hash': true,
-      });
+      };
+
+      _razorpay.open(options);
 
       setState(() {
-        _payLaunched   = true;
+        _payLaunched = true;
         _payProcessing = false;
       });
+      debugPrint('OrderWizard Razorpay checkout opened.');
     } catch (e) {
+      debugPrint('OrderWizard payment setup failed: $e');
       if (!mounted) return;
       setState(() {
         _payProcessing = false;
-        _payError      = e.toString();
+        _payError = e.toString();
+        _payPending = false;
       });
     }
   }
 
   void _onPaySuccess(PaymentSuccessResponse resp) {
+    debugPrint(
+      'OrderWizard Razorpay success callback received: '
+      'paymentIdPresent=${resp.paymentId != null}, '
+      'orderIdPresent=${resp.orderId != null}, '
+      'signaturePresent=${resp.signature != null}.',
+    );
     unawaited(_verifyAndSubmit(resp));
   }
 
   Future<void> _verifyAndSubmit(PaymentSuccessResponse resp) async {
-    final intentId        = _payIntentId;
-    final paymentId       = resp.paymentId;
+    debugPrint('OrderWizard verifying Razorpay payment with backend.');
+    final intentId = _payIntentId;
+    final paymentId = resp.paymentId;
     final providerOrderId = resp.orderId;
-    final signature       = resp.signature;
-    if (intentId == null || paymentId == null ||
-        providerOrderId == null || signature == null) {
+    final signature = resp.signature;
+    if (intentId == null ||
+        paymentId == null ||
+        providerOrderId == null ||
+        signature == null) {
       _setPayPending(
         'Razorpay returned incomplete payment details. '
         'Do not pay again — check your payment status or contact support.',
@@ -550,14 +569,18 @@ class _OrderWizardState extends State<OrderWizard> {
     }
     setState(() {
       _payProcessing = true;
-      _payError      = null;
+      _payError = null;
     });
     try {
       final verified = await widget.api.verifyPayment(intentId, {
         'razorpayPaymentId': paymentId,
-        'razorpayOrderId':   providerOrderId,
+        'razorpayOrderId': providerOrderId,
         'razorpaySignature': signature,
       });
+      debugPrint(
+        'OrderWizard payment verification result: '
+        'status=${verified['status']}.',
+      );
       if (verified['status']?.toString() != 'captured') {
         _setPayPending(
           'Razorpay received your payment, but SignFix has not confirmed '
@@ -568,9 +591,9 @@ class _OrderWizardState extends State<OrderWizard> {
       if (!mounted) return;
       setState(() {
         _payProcessing = false;
-        _paySuccess    = true;
-        _payPending    = false;
-        _payError      = null;
+        _paySuccess = true;
+        _payPending = false;
+        _payError = null;
       });
       // Order already created before payment — just show success dialog
       if (mounted) {
@@ -583,7 +606,7 @@ class _OrderWizardState extends State<OrderWizard> {
             title: const Text('Payment Successful!',
                 style: TextStyle(color: AppColors.white)),
             content: Text(
-              'Your payment was received and order $_autoQuotationNo is confirmed.\n\nAdmin will review and proceed with production.',
+              'Your payment for order $_submittedOrderNo was received.\n\nAdmin will review the order before production.',
               style: const TextStyle(color: AppColors.textLight),
               textAlign: TextAlign.center,
             ),
@@ -592,6 +615,7 @@ class _OrderWizardState extends State<OrderWizard> {
                 onPressed: () {
                   Navigator.pop(context);
                   _reset();
+                  widget.onOrderSubmitted?.call();
                 },
                 child: const Text('View Orders'),
               ),
@@ -600,6 +624,7 @@ class _OrderWizardState extends State<OrderWizard> {
         );
       }
     } catch (e) {
+      debugPrint('OrderWizard payment verification failed: $e');
       _setPayPending(
         'Payment was received but could not be verified: $e. '
         'Do not pay again; check your payment status or contact support.',
@@ -608,39 +633,47 @@ class _OrderWizardState extends State<OrderWizard> {
   }
 
   void _onPayError(PaymentFailureResponse resp) {
+    debugPrint(
+      'OrderWizard Razorpay failure callback: code=${resp.code}, '
+      'message=${resp.message}.',
+    );
     unawaited(_handlePayError(resp));
   }
 
   Future<void> _handlePayError(PaymentFailureResponse resp) async {
     final intentId = _payIntentId;
-    final message  = _friendlyPayError(resp);
+    final message = _friendlyPayError(resp);
     if (intentId != null) {
       try {
         await widget.api.reportPaymentFailure(intentId, {
           if (resp.code != null) 'code': resp.code.toString(),
           'description': resp.message ?? 'Razorpay payment failed',
           'source': 'razorpay',
-          'step':   'checkout',
+          'step': 'checkout',
         });
-      } catch (_) {}
+      } catch (error) {
+        debugPrint('OrderWizard could not report payment failure: $error');
+      }
     }
     if (!mounted) return;
     setState(() {
       _payProcessing = false;
-      _payLaunched   = false;
-      _payError      = message;
+      _payLaunched = false;
+      _payError = message;
     });
   }
 
   String _friendlyPayError(PaymentFailureResponse resp) {
     final code = resp.code ?? 0;
-    final raw  = (resp.message ?? '').toLowerCase();
+    final raw = (resp.message ?? '').toLowerCase();
     if (code == Razorpay.PAYMENT_CANCELLED ||
-        raw.contains('cancel') || raw.contains('dismiss')) {
+        raw.contains('cancel') ||
+        raw.contains('dismiss')) {
       return 'You cancelled the payment. You can try again whenever you\'re ready.';
     }
     if (code == Razorpay.NETWORK_ERROR ||
-        raw.contains('network') || raw.contains('timeout') ||
+        raw.contains('network') ||
+        raw.contains('timeout') ||
         raw.contains('connect')) {
       return 'Unable to connect to the payment service. Please check your internet connection and try again.';
     }
@@ -651,9 +684,10 @@ class _OrderWizardState extends State<OrderWizard> {
       return 'Payment declined by your bank. Please try another method.';
     }
     final cleanMsg = resp.message
-        ?.replaceAll(RegExp(r'Exception:?\s*'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim() ?? '';
+            ?.replaceAll(RegExp(r'Exception:?\s*'), '')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim() ??
+        '';
     if (cleanMsg.isNotEmpty && cleanMsg.length < 120) return cleanMsg;
     return 'Payment could not be completed. Please try a different payment method or contact support.';
   }
@@ -669,9 +703,9 @@ class _OrderWizardState extends State<OrderWizard> {
     if (!mounted) return;
     setState(() {
       _payProcessing = false;
-      _payPending    = true;
-      _payError      = message;
-      _payLaunched   = false;
+      _payPending = true;
+      _payError = message;
+      _payLaunched = false;
     });
   }
 
@@ -806,7 +840,7 @@ class _OrderWizardState extends State<OrderWizard> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: loading ? null : _reset,
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      icon: const Icon(Icons.restart_alt_rounded, size: 16),
                       label: const Text('Start Over'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.textMuted,
@@ -993,30 +1027,46 @@ class _OrderWizardState extends State<OrderWizard> {
                   ))
               .toList(),
         ),
-        if ((['Module LED Letters', 'Channel LED Letters', 'Bata Type LED Letters'].contains(type))) ...[
+        if (([
+          'Module LED Letters',
+          'Channel LED Letters',
+          'Bata Type LED Letters'
+        ].contains(type))) ...[
           const SizedBox(height: 16),
           const Text(
             'Side Walling Color',
-            style: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w700, fontSize: 13),
+            style: TextStyle(
+                color: AppColors.textLight,
+                fontWeight: FontWeight.w700,
+                fontSize: 13),
           ),
           const SizedBox(height: 8),
           Builder(builder: (context) {
             final options = switch (type) {
-              'Module LED Letters'    => const ['Black', 'Grey'],
-              'Channel LED Letters'   => const ['Gold', 'Silver', 'White', 'Black', 'Blue', 'Red'],
+              'Module LED Letters' => const ['Black', 'Grey'],
+              'Channel LED Letters' => const [
+                  'Gold',
+                  'Silver',
+                  'White',
+                  'Black',
+                  'Blue',
+                  'Red'
+                ],
               'Bata Type LED Letters' => const ['Gold', 'Rose Gold', 'Silver'],
-              _                       => const <String>[],
+              _ => const <String>[],
             };
             return Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: options.map((opt) => ChoiceChip(
-                label: Text(opt),
-                selected: _sideWalling == opt,
-                selectedColor: AppColors.gold.withValues(alpha: .2),
-                checkmarkColor: AppColors.gold,
-                onSelected: (_) => setState(() => _sideWalling = opt),
-              )).toList(),
+              children: options
+                  .map((opt) => ChoiceChip(
+                        label: Text(opt),
+                        selected: _sideWalling == opt,
+                        selectedColor: AppColors.gold.withValues(alpha: .2),
+                        checkmarkColor: AppColors.gold,
+                        onSelected: (_) => setState(() => _sideWalling = opt),
+                      ))
+                  .toList(),
             );
           }),
         ],
@@ -1211,7 +1261,10 @@ class _OrderWizardState extends State<OrderWizard> {
           const SizedBox(height: 12),
           const Text(
             'LED Watt per Square Foot',
-            style: TextStyle(color: AppColors.textLight, fontWeight: FontWeight.w700, fontSize: 13),
+            style: TextStyle(
+                color: AppColors.textLight,
+                fontWeight: FontWeight.w700,
+                fontSize: 13),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -1235,8 +1288,9 @@ class _OrderWizardState extends State<OrderWizard> {
           ),
           const SizedBox(height: 8),
           Builder(builder: (context) {
-            final wattValue = double.tryParse(
-                    _ledWatt.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 10.0;
+            final wattValue =
+                double.tryParse(_ledWatt.replaceAll(RegExp(r'[^0-9.]'), '')) ??
+                    10.0;
             final l = double.tryParse(length.text) ?? 0;
             final ww = double.tryParse(width.text) ?? 0;
             final q = int.tryParse(quantity.text) ?? 1;
@@ -1255,7 +1309,8 @@ class _OrderWizardState extends State<OrderWizard> {
                 Flexible(
                   child: Text(
                     'Estimated power: ~${totalWatts.toStringAsFixed(0)}W  |  Monthly cost: ~₹$monthlyCost',
-                    style: const TextStyle(color: AppColors.textLight, fontSize: 12),
+                    style: const TextStyle(
+                        color: AppColors.textLight, fontSize: 12),
                   ),
                 ),
               ]),
@@ -1283,570 +1338,684 @@ class _OrderWizardState extends State<OrderWizard> {
         ),
       ];
 
-  // ── Step 4: Quote + Payment ───────────────────────────────────────────────
-  List<Widget> _step4() => [
-        _heading('Price Estimate & Payment', Icons.calculate_rounded),
+  double _quotePrice(String key) => (quote?[key] as num?)?.toDouble() ?? 0;
 
-        // Breakdown
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.navyDark,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.navyLight),
-          ),
-          child: Column(children: [
-            ...[
-              'productCost',
-              'materialCost',
-              'lightingCost',
-              'wattCost',
-              'installation',
-              'transportation',
-              'gst',
-            ]
-                .where((k) => (quote![k] ?? 0) > 0)
-                .map(
-                  (k) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    child: Row(children: [
-                      Text(humanize(k),
-                          style: const TextStyle(
-                              color: AppColors.textLight, fontSize: 13)),
-                      const Spacer(),
-                      Text(money(quote![k]),
-                          style: const TextStyle(
-                              color: AppColors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13)),
-                    ]),
-                  ),
-                )
-                .expand((w) =>
-                    [w, const Divider(height: 0, color: AppColors.navyLight)])
-                .toList()
-              ..removeLast(),
-          ]),
-        ),
-        const SizedBox(height: 14),
-
-        // Total
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF2A1800), Color(0xFF1A0F00)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
-            boxShadow: [
-              BoxShadow(
-                  color: AppColors.gold.withValues(alpha: .12), blurRadius: 16)
-            ],
-          ),
-          child: Row(children: [
-            const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Estimated Total',
-                      style:
-                          TextStyle(color: AppColors.textLight, fontSize: 13)),
-                  Text('incl. GST',
-                      style:
-                          TextStyle(color: AppColors.textMuted, fontSize: 11)),
-                ]),
-            const Spacer(),
-            Text(money(quote!['estimatedPrice']),
-                style: const TextStyle(
-                    color: AppColors.gold,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900)),
-          ]),
-        ),
-
-        // ── Payment Type Selector ──────────────────────────────────────────
-        const SizedBox(height: 20),
-        const Text(
-          'Payment Type',
-          style: TextStyle(
-              color: AppColors.textLight,
-              fontWeight: FontWeight.w700,
-              fontSize: 14),
-        ),
-        const SizedBox(height: 10),
-        Builder(builder: (context) {
-          final total =
-              (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
-          final advance = total * 0.25;
-          return Row(children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _paymentType = 'full'),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _paymentType == 'full'
-                        ? AppColors.gold.withValues(alpha: .15)
-                        : AppColors.navyDark,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _paymentType == 'full'
-                          ? AppColors.gold
-                          : AppColors.navyLight,
-                      width: _paymentType == 'full' ? 2 : 1,
-                    ),
-                  ),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Full Payment',
-                          style: TextStyle(
-                            color: _paymentType == 'full'
-                                ? AppColors.gold
-                                : AppColors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          money(total),
-                          style: TextStyle(
-                            color: _paymentType == 'full'
-                                ? AppColors.gold
-                                : AppColors.textMuted,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Pay entire amount',
-                          style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 11),
-                        ),
-                      ]),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _paymentType = 'advance'),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _paymentType == 'advance'
-                        ? AppColors.gold.withValues(alpha: .15)
-                        : AppColors.navyDark,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _paymentType == 'advance'
-                          ? AppColors.gold
-                          : AppColors.navyLight,
-                      width: _paymentType == 'advance' ? 2 : 1,
-                    ),
-                  ),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Advance (25%)',
-                          style: TextStyle(
-                            color: _paymentType == 'advance'
-                                ? AppColors.gold
-                                : AppColors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          money(advance),
-                          style: TextStyle(
-                            color: _paymentType == 'advance'
-                                ? AppColors.gold
-                                : AppColors.textMuted,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Pay 25% now',
-                          style: TextStyle(
-                              color: AppColors.textMuted, fontSize: 11),
-                        ),
-                      ]),
-                ),
-              ),
-            ),
-          ]);
-        }),
-
-        const SizedBox(height: 20),
-
-        // ── Processing state ───────────────────────────────────────────────
-        if (_payProcessing)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-              CircularProgressIndicator(color: AppColors.gold),
-              SizedBox(height: 14),
-              Text('Processing payment…',
-                  style: TextStyle(color: AppColors.textLight)),
-            ])),
-          ),
-
-        // ── Error / pending banner ─────────────────────────────────────────
-        if (_payError != null && !_payProcessing)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: (_payPending ? AppColors.warning : AppColors.danger)
-                  .withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: _payPending ? AppColors.warning : AppColors.danger,
-              ),
-            ),
-            child:
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(
-                _payPending
-                    ? Icons.hourglass_top_rounded
-                    : Icons.error_outline_rounded,
-                color: _payPending ? AppColors.warning : AppColors.danger,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _payError!,
-                  style: TextStyle(
-                    color: _payPending ? AppColors.warning : AppColors.danger,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ]),
-          ),
-
-        // ── Payment method selector ────────────────────────────────────────
-        if (!_payProcessing && !_paySuccess) ...[
-          const Text('Select a Payment Method',
-              style: TextStyle(
-                  color: AppColors.textLight,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14)),
-          const SizedBox(height: 12),
-          Row(children: [
-            _WizardPayMethod(Icons.account_balance_wallet_outlined, 'UPI / GPay',
-                AppColors.gold,
-                selected: _payMethod == 'upi',
-                onTap: () => setState(() { _payMethod = 'upi'; _payError = null; _upiError = null; })),
-            const SizedBox(width: 10),
-            _WizardPayMethod(Icons.credit_card_outlined, 'Credit / Debit',
-                AppColors.info,
-                selected: _payMethod == 'card',
-                onTap: () => setState(() { _payMethod = 'card'; _payError = null; _upiError = null; })),
-            const SizedBox(width: 10),
-            _WizardPayMethod(Icons.account_balance_outlined, 'Net Banking',
-                AppColors.success,
-                selected: _payMethod == 'netbanking',
-                onTap: () => setState(() { _payMethod = 'netbanking'; _payError = null; _upiError = null; })),
-          ]),
-          const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _WizardPayMethod(Icons.phone_android_outlined, 'Wallets',
-                AppColors.warning,
-                selected: _payMethod == 'wallet',
-                onTap: () => setState(() { _payMethod = 'wallet'; _payError = null; _upiError = null; })),
-            const SizedBox(width: 10),
-            _WizardPayMethod(Icons.currency_rupee_outlined, 'EMI',
-                AppColors.textLight,
-                selected: _payMethod == 'emi',
-                onTap: () => setState(() { _payMethod = 'emi'; _payError = null; _upiError = null; })),
-          ]),
-          const SizedBox(height: 16),
-          // Dynamic fields based on selected method
-          if (_payMethod == 'upi') ..._buildUpiFields(),
-          if (_payMethod == 'card') ..._buildCardFields(),
-          if (_payMethod == 'netbanking') ..._buildNetBankingFields(),
-          if (_payMethod == 'wallet') ..._buildWalletFields(),
-          if (_payMethod == 'emi') ..._buildEmiFields(),
-          const SizedBox(height: 20),
-          // Security badge
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.navyDark,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.navyLight),
-            ),
-            child: const Row(children: [
-              Icon(Icons.lock_rounded, color: AppColors.success, size: 18),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '100% Secure · Powered by Razorpay · PCI DSS Compliant',
-                  style:
-                      TextStyle(color: AppColors.textLight, fontSize: 12),
-                ),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          // "Pay & Submit Order" button
-          GestureDetector(
-            onTap: (_payProcessing || _payLaunched) ? null : _payAndSubmit,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.gold, AppColors.goldDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.gold.withValues(alpha: .35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.lock_rounded,
-                        color: AppColors.navyDeep, size: 18),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Pay ${money(_paymentType == 'advance' ? ((quote!["estimatedPrice"] as num?)?.toDouble() ?? 0) * 0.25 : (quote!["estimatedPrice"] as num?)?.toDouble() ?? 0)} & Submit Order',
+  Widget _summaryRow(
+    String label,
+    String value,
+    IconData icon, {
+    double? price,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.gold, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 11)),
+                if (value.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.navyDeep,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ]),
+                          color: AppColors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          const Center(
-            child: Text(
-              'You will be redirected to Razorpay secure checkout',
-              style:
-                  TextStyle(color: AppColors.textMuted, fontSize: 11),
-              textAlign: TextAlign.center,
+          if (price != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              price == 0 ? 'Free' : money(price),
+              style: TextStyle(
+                color: price == 0 ? AppColors.success : AppColors.textLight,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
+          ],
         ],
-
-        // ── Success + submitting state ─────────────────────────────────────
-        if (_paySuccess && _payProcessing)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-              CircularProgressIndicator(color: AppColors.success),
-              SizedBox(height: 14),
-              Text('Payment confirmed! Submitting your order…',
-                  style: TextStyle(color: AppColors.success)),
-            ])),
-          ),
-      ];
-
-  // ── UPI fields ─────────────────────────────────────────────────────────────
-  List<Widget> _buildUpiFields() => [
-    TextField(
-      controller: _upiController,
-      keyboardType: TextInputType.text,
-      autocorrect: false,
-      textInputAction: TextInputAction.done,
-      style: const TextStyle(color: AppColors.white),
-      decoration: InputDecoration(
-        labelText: 'UPI ID (optional)',
-        hintText: 'e.g. username@bank',
-        prefixIcon: const Icon(Icons.alternate_email, color: AppColors.gold),
-        errorText: _upiError,
       ),
-      onChanged: (_) {
-        if (_upiError != null) setState(() => _upiError = null);
-      },
-    ),
-    const SizedBox(height: 12),
-    Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
+
+  Widget _summaryChip(
+    String value,
+    String label,
+    IconData icon, {
+    Color? color,
+    double? price,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 88),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: AppColors.navyDark,
+        color: AppColors.navyMid,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.navyLight),
       ),
-      child: const Row(children: [
-        Icon(Icons.qr_code_2_rounded, color: AppColors.gold, size: 48),
-        SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Pay via QR Code',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: color ?? AppColors.gold, size: 15),
+            const SizedBox(width: 5),
+            Text(label,
+                style:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+          ]),
+          const SizedBox(height: 4),
+          Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: AppColors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+          if (price != null) ...[
+            const SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: price == 0
+                    ? AppColors.success.withValues(alpha: .12)
+                    : AppColors.gold.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                price == 0 ? 'Free' : money(price),
+                style: TextStyle(
+                  color: price == 0 ? AppColors.success : AppColors.gold,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Step 4: Quote + Payment ───────────────────────────────────────────────
+  List<Widget> _step4() {
+    final total = _quotePrice('estimatedPrice');
+    final gst = quote?['gst'] is num
+        ? _quotePrice('gst')
+        : (total / 1.18 * 0.18).roundToDouble();
+    final subtotal = quote?['subtotal'] is num
+        ? _quotePrice('subtotal')
+        : (total - gst).clamp(0, double.infinity).toDouble();
+    final deliveryAddress =
+        address.text.trim().isEmpty ? 'Not provided' : address.text.trim();
+
+    return [
+      _heading('Price Estimate & Payment', Icons.calculate_rounded),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.navyDark,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.navyLight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.receipt_long_rounded, color: AppColors.gold, size: 20),
+              SizedBox(width: 8),
+              Text('Order Summary',
                   style: TextStyle(
                       color: AppColors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14)),
-              SizedBox(height: 4),
-              Text('Scan using any UPI app (GPay, PhonePe, Paytm)',
-                  style:
-                      TextStyle(color: AppColors.textMuted, fontSize: 12)),
-            ],
-          ),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16)),
+            ]),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _summaryChip('${length.text} ft', 'Length', Icons.height),
+                _summaryChip('${width.text} ft', 'Width', Icons.expand),
+                _summaryChip(quantity.text, 'Quantity',
+                    Icons.format_list_numbered_rounded),
+              ],
+            ),
+            _summaryRow('Sign Board', type, Icons.signpost_outlined,
+                price: _quotePrice('productCost')),
+            const Divider(height: 1, color: AppColors.navyLight),
+            _summaryRow('Material', material, Icons.layers_outlined,
+                price: _quotePrice('materialCost')),
+            _summaryRow('Lighting', lighting, Icons.lightbulb_outline_rounded,
+                price: _quotePrice('lightingCost')),
+            if (lighting != 'No Lighting')
+              _summaryRow('LED Watt', _ledWatt, Icons.bolt_rounded,
+                  price: _quotePrice('wattCost')),
+            if (_sideWalling != null && _sideWalling!.isNotEmpty)
+              _summaryRow(
+                  'Side Walling', _sideWalling!, Icons.view_sidebar_outlined),
+            const SizedBox(height: 8),
+            const Text('Delivery Address',
+                style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.location_on_outlined,
+                  color: AppColors.gold, size: 17),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(deliveryAddress,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(color: AppColors.white, fontSize: 12)),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _summaryChip(
+                  installation ? 'Included' : 'Not selected',
+                  'Installation',
+                  Icons.handyman_outlined,
+                  color: installation ? AppColors.success : AppColors.textMuted,
+                  price: installation ? _quotePrice('installation') : null,
+                ),
+                _summaryChip(
+                  transportation ? 'Included' : 'Not selected',
+                  'Transport',
+                  Icons.local_shipping_outlined,
+                  color:
+                      transportation ? AppColors.success : AppColors.textMuted,
+                  price: transportation ? _quotePrice('transportation') : null,
+                ),
+              ],
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, color: AppColors.navyLight),
+            ),
+            _summaryRow('Subtotal', '', Icons.receipt_outlined,
+                price: subtotal),
+            _summaryRow('GST', '', Icons.percent_rounded, price: gst),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(12),
+                border:
+                    Border.all(color: AppColors.gold.withValues(alpha: .35)),
+              ),
+              child: Row(children: [
+                const Expanded(
+                  child: Text('Estimated Total (incl. GST)',
+                      style: TextStyle(
+                          color: AppColors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800)),
+                ),
+                Text(money(total),
+                    style: const TextStyle(
+                        color: AppColors.gold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900)),
+              ]),
+            ),
+          ],
         ),
-      ]),
-    ),
-  ];
+      ),
+      const SizedBox(height: 14),
 
-  // ── Card fields ────────────────────────────────────────────────────────────
-  List<Widget> _buildCardFields() => [
-    TextField(
-      controller: _cardNumberCtrl,
-      keyboardType: TextInputType.number,
-      style: const TextStyle(color: AppColors.white),
-      maxLength: 19,
-      decoration: const InputDecoration(
-        labelText: 'Card Number',
-        hintText: '1234 5678 9012 3456',
-        prefixIcon: Icon(Icons.credit_card_outlined, color: AppColors.info),
-        counterText: '',
+      // ── Payment Type Selector ──────────────────────────────────────────
+      const SizedBox(height: 20),
+      const Text(
+        'Payment Type',
+        style: TextStyle(
+            color: AppColors.textLight,
+            fontWeight: FontWeight.w700,
+            fontSize: 14),
       ),
-      onChanged: (v) {
-        // Auto-insert spaces every 4 digits
-        final digits = v.replaceAll(' ', '');
-        if (digits.length <= 16) {
-          final formatted = RegExp(r'.{1,4}')
-              .allMatches(digits)
-              .map((m) => m.group(0)!)
-              .join(' ');
-          if (formatted != v) {
-            _cardNumberCtrl.value = TextEditingValue(
-              text: formatted,
-              selection:
-                  TextSelection.collapsed(offset: formatted.length),
-            );
-          }
-        }
-        if (_payError != null) setState(() => _payError = null);
-      },
-    ),
-    const SizedBox(height: 12),
-    Row(children: [
-      Expanded(
-        child: TextField(
-          controller: _expiryCtrl,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: AppColors.white),
-          maxLength: 5,
-          decoration: const InputDecoration(
-            labelText: 'Expiry Date',
-            hintText: 'MM/YY',
-            prefixIcon: Icon(Icons.calendar_today_outlined,
-                color: AppColors.info),
-            counterText: '',
+      const SizedBox(height: 10),
+      Builder(builder: (context) {
+        final total = (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
+        final advance = total * 0.25;
+        return Row(children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _paymentType = 'full'),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _paymentType == 'full'
+                      ? AppColors.gold.withValues(alpha: .15)
+                      : AppColors.navyDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _paymentType == 'full'
+                        ? AppColors.gold
+                        : AppColors.navyLight,
+                    width: _paymentType == 'full' ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Full Payment',
+                        style: TextStyle(
+                          color: _paymentType == 'full'
+                              ? AppColors.gold
+                              : AppColors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        money(total),
+                        style: TextStyle(
+                          color: _paymentType == 'full'
+                              ? AppColors.gold
+                              : AppColors.textMuted,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Pay entire amount',
+                        style:
+                            TextStyle(color: AppColors.textMuted, fontSize: 11),
+                      ),
+                    ]),
+              ),
+            ),
           ),
-          onChanged: (v) {
-            // Auto-add slash but not on backspace (only when length goes 2→3)
-            final withoutSlash = v.replaceAll('/', '');
-            if (withoutSlash.length == 2 && !v.contains('/')) {
-              _expiryCtrl.value = TextEditingValue(
-                text: '$withoutSlash/',
-                selection: const TextSelection.collapsed(offset: 3),
-              );
-            }
-            if (_payError != null) setState(() => _payError = null);
-          },
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _paymentType = 'advance'),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _paymentType == 'advance'
+                      ? AppColors.gold.withValues(alpha: .15)
+                      : AppColors.navyDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _paymentType == 'advance'
+                        ? AppColors.gold
+                        : AppColors.navyLight,
+                    width: _paymentType == 'advance' ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Advance (25%)',
+                        style: TextStyle(
+                          color: _paymentType == 'advance'
+                              ? AppColors.gold
+                              : AppColors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        money(advance),
+                        style: TextStyle(
+                          color: _paymentType == 'advance'
+                              ? AppColors.gold
+                              : AppColors.textMuted,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Pay 25% now',
+                        style:
+                            TextStyle(color: AppColors.textMuted, fontSize: 11),
+                      ),
+                    ]),
+              ),
+            ),
+          ),
+        ]);
+      }),
+
+      const SizedBox(height: 20),
+
+      // ── Processing state ───────────────────────────────────────────────
+      if (_payProcessing)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 32),
+          child: Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CircularProgressIndicator(color: AppColors.gold),
+            SizedBox(height: 14),
+            Text('Processing payment…',
+                style: TextStyle(color: AppColors.textLight)),
+          ])),
         ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: TextField(
-          controller: _cvvCtrl,
-          keyboardType: TextInputType.number,
-          obscureText: true,
+
+      // ── Error / pending banner ─────────────────────────────────────────
+      if (_payError != null && !_payProcessing)
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: (_payPending ? AppColors.warning : AppColors.danger)
+                .withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: _payPending ? AppColors.warning : AppColors.danger,
+            ),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(
+              _payPending
+                  ? Icons.hourglass_top_rounded
+                  : Icons.error_outline_rounded,
+              color: _payPending ? AppColors.warning : AppColors.danger,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _payError!,
+                style: TextStyle(
+                  color: _payPending ? AppColors.warning : AppColors.danger,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ]),
+        ),
+
+      // ── Payment method selector ────────────────────────────────────────
+      if (!_payProcessing && !_paySuccess) ...[
+        const Text('Select a Payment Method',
+            style: TextStyle(
+                color: AppColors.textLight,
+                fontWeight: FontWeight.w700,
+                fontSize: 14)),
+        const SizedBox(height: 6),
+        const Text(
+          'Choose the available payment method in Razorpay secure checkout.',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        Row(children: [
+          _WizardPayMethod(Icons.account_balance_wallet_outlined, 'UPI / GPay',
+              AppColors.gold,
+              selected: _payMethod == 'upi',
+              onTap: () => setState(() {
+                    _payMethod = 'upi';
+                    _payError = null;
+                    _upiError = null;
+                  })),
+          const SizedBox(width: 10),
+          _WizardPayMethod(
+              Icons.credit_card_outlined, 'Credit / Debit', AppColors.info,
+              selected: _payMethod == 'card',
+              onTap: () => setState(() {
+                    _payMethod = 'card';
+                    _payError = null;
+                    _upiError = null;
+                  })),
+          const SizedBox(width: 10),
+          _WizardPayMethod(
+              Icons.account_balance_outlined, 'Net Banking', AppColors.success,
+              selected: _payMethod == 'netbanking',
+              onTap: () => setState(() {
+                    _payMethod = 'netbanking';
+                    _payError = null;
+                    _upiError = null;
+                  })),
+        ]),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _WizardPayMethod(
+              Icons.phone_android_outlined, 'Wallets', AppColors.warning,
+              selected: _payMethod == 'wallet',
+              onTap: () => setState(() {
+                    _payMethod = 'wallet';
+                    _payError = null;
+                    _upiError = null;
+                  })),
+          const SizedBox(width: 10),
+          _WizardPayMethod(
+              Icons.currency_rupee_outlined, 'EMI', AppColors.textLight,
+              selected: _payMethod == 'emi',
+              onTap: () => setState(() {
+                    _payMethod = 'emi';
+                    _payError = null;
+                    _upiError = null;
+                  })),
+        ]),
+        const SizedBox(height: 16),
+        // Dynamic fields based on selected method
+        if (_payMethod == 'upi') ..._buildUpiFields(),
+        if (_payMethod == 'card') ..._buildCardFields(),
+        if (_payMethod == 'netbanking') ..._buildNetBankingFields(),
+        if (_payMethod == 'wallet') ..._buildWalletFields(),
+        if (_payMethod == 'emi') ..._buildEmiFields(),
+        const SizedBox(height: 20),
+        // Security badge
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.navyDark,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.navyLight),
+          ),
+          child: const Row(children: [
+            Icon(Icons.lock_rounded, color: AppColors.success, size: 18),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '100% Secure · Powered by Razorpay · Card details, bank credentials and OTP are entered only in Razorpay Checkout.',
+                style: TextStyle(color: AppColors.textLight, fontSize: 12),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 20),
+        // "Pay & Submit Order" button
+        GestureDetector(
+          onTap: (_payProcessing || _payLaunched) ? null : _payAndSubmit,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.gold, AppColors.goldDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: .35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.lock_rounded,
+                  color: AppColors.navyDeep, size: 18),
+              const SizedBox(width: 10),
+              Text(
+                _payProcessing
+                    ? 'Processing...'
+                    : _orderSubmitted
+                        ? 'Retry Payment'
+                        : 'Submit & Pay ${money(_paymentType == 'advance' ? ((quote!["estimatedPrice"] as num?)?.toDouble() ?? 0) * 0.25 : (quote!["estimatedPrice"] as num?)?.toDouble() ?? 0)}',
+                style: const TextStyle(
+                  color: AppColors.navyDeep,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Center(
+          child: Text(
+            'Card, bank, wallet details and OTP are entered securely in Razorpay Checkout.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+
+      // ── Success + submitting state ─────────────────────────────────────
+      if (_paySuccess && _payProcessing)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CircularProgressIndicator(color: AppColors.success),
+            SizedBox(height: 14),
+            Text('Payment confirmed! Submitting your order…',
+                style: TextStyle(color: AppColors.success)),
+          ])),
+        ),
+    ];
+  }
+
+  // ── UPI fields ─────────────────────────────────────────────────────────────
+  List<Widget> _buildUpiFields() => [
+        TextField(
+          controller: _upiController,
+          keyboardType: TextInputType.text,
+          autocorrect: false,
+          textInputAction: TextInputAction.done,
           style: const TextStyle(color: AppColors.white),
-          maxLength: 3,
-          decoration: const InputDecoration(
-            labelText: 'CVV',
-            hintText: 'CVV',
+          decoration: InputDecoration(
+            labelText: 'UPI ID (optional)',
+            hintText: 'e.g. username@bank',
             prefixIcon:
-                Icon(Icons.lock_outline, color: AppColors.info),
-            counterText: '',
+                const Icon(Icons.alternate_email, color: AppColors.gold),
+            errorText: _upiError,
           ),
           onChanged: (_) {
-            if (_payError != null) setState(() => _payError = null);
+            if (_upiError != null) setState(() => _upiError = null);
           },
         ),
-      ),
-    ]),
-    const SizedBox(height: 12),
-    TextField(
-      controller: _cardNameCtrl,
-      keyboardType: TextInputType.name,
-      style: const TextStyle(color: AppColors.white),
-      decoration: const InputDecoration(
-        labelText: 'Cardholder Name',
-        hintText: 'Name on card',
-        prefixIcon: Icon(Icons.person_outline, color: AppColors.info),
-      ),
-      onChanged: (_) {
-        if (_payError != null) setState(() => _payError = null);
-      },
-    ),
-  ];
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.navyDark,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.navyLight),
+          ),
+          child: const Row(children: [
+            Icon(Icons.qr_code_2_rounded, color: AppColors.gold, size: 48),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pay via QR Code',
+                      style: TextStyle(
+                          color: AppColors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                  SizedBox(height: 4),
+                  Text('Scan using any UPI app (GPay, PhonePe, Paytm)',
+                      style:
+                          TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                ],
+              ),
+            ),
+          ]),
+        ),
+      ];
+
+  // Card, bank credentials, and OTP are entered only in Razorpay Checkout.
+  List<Widget> _buildCardFields() => [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.navyDark,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.navyLight),
+          ),
+          child: const Row(children: [
+            Icon(Icons.lock_outline_rounded,
+                color: AppColors.success, size: 20),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Enter your card details and any verification code in the secure Razorpay checkout screen.',
+                style: TextStyle(color: AppColors.textLight, fontSize: 12),
+              ),
+            ),
+          ]),
+        ),
+      ];
 
   // ── Net Banking fields ─────────────────────────────────────────────────────
   List<Widget> _buildNetBankingFields() => [
-    DropdownButtonFormField<String>(
-      initialValue: _selectedBank,
-      decoration: const InputDecoration(
-        labelText: 'Select Bank',
-        prefixIcon: Icon(Icons.account_balance_outlined,
-            color: AppColors.success),
-      ),
-      dropdownColor: AppColors.navyMid,
-      style: const TextStyle(color: AppColors.white),
-      items: const [
-        'SBI',
-        'HDFC Bank',
-        'ICICI Bank',
-        'Axis Bank',
-        'Kotak Mahindra',
-        'Punjab National Bank',
-        'Bank of Baroda',
-        'Canara Bank',
-        'Yes Bank',
-        'IDBI Bank',
-      ].map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
-      onChanged: (v) => setState(() {
-        _selectedBank = v;
-        if (_payError != null) _payError = null;
-      }),
-    ),
-  ];
+        DropdownButtonFormField<String>(
+          initialValue: _selectedBank,
+          decoration: const InputDecoration(
+            labelText: 'Select Bank',
+            prefixIcon:
+                Icon(Icons.account_balance_outlined, color: AppColors.success),
+          ),
+          dropdownColor: AppColors.navyMid,
+          style: const TextStyle(color: AppColors.white),
+          items: const [
+            'SBI',
+            'HDFC Bank',
+            'ICICI Bank',
+            'Axis Bank',
+            'Kotak Mahindra',
+            'Punjab National Bank',
+            'Bank of Baroda',
+            'Canara Bank',
+            'Yes Bank',
+            'IDBI Bank',
+          ].map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+          onChanged: (v) => setState(() {
+            _selectedBank = v;
+            if (_payError != null) _payError = null;
+          }),
+        ),
+      ];
 
   // ── Wallet fields ──────────────────────────────────────────────────────────
   List<Widget> _buildWalletFields() {
     final wallets = [
-      const _WalletOption('GPay', Icons.account_balance_wallet_rounded, AppColors.info),
-      const _WalletOption('PhonePe', Icons.phone_android_rounded, Color(0xFF5F259F)),
-      const _WalletOption('Paytm', Icons.payment_rounded, AppColors.info),
+      const _WalletOption(
+          'Paytm', Icons.account_balance_wallet_rounded, AppColors.info),
+      const _WalletOption(
+          'PhonePe', Icons.phone_android_rounded, Color(0xFF5F259F)),
+      const _WalletOption(
+          'Mobikwik', Icons.wallet_rounded, AppColors.warning),
     ];
     return [
       // Use fixed-height containers instead of Expanded inside ListView
@@ -1855,7 +2024,7 @@ class _OrderWizardState extends State<OrderWizard> {
         child: Row(
           children: wallets.asMap().entries.map((entry) {
             final idx = entry.key;
-            final w   = entry.value;
+            final w = entry.value;
             final selected = _selectedWallet == w.name;
             return Expanded(
               child: GestureDetector(
@@ -1864,7 +2033,8 @@ class _OrderWizardState extends State<OrderWizard> {
                   if (_payError != null) _payError = null;
                 }),
                 child: Container(
-                  margin: EdgeInsets.only(right: idx < wallets.length - 1 ? 10 : 0),
+                  margin:
+                      EdgeInsets.only(right: idx < wallets.length - 1 ? 10 : 0),
                   decoration: BoxDecoration(
                     color: selected
                         ? w.color.withValues(alpha: .15)
@@ -1885,7 +2055,8 @@ class _OrderWizardState extends State<OrderWizard> {
                       Text(
                         w.name,
                         style: TextStyle(
-                          color: selected ? AppColors.white : AppColors.textMuted,
+                          color:
+                              selected ? AppColors.white : AppColors.textMuted,
                           fontWeight: FontWeight.w700,
                           fontSize: 12,
                         ),
@@ -1900,10 +2071,12 @@ class _OrderWizardState extends State<OrderWizard> {
       ),
     ];
   }
+
   // ── EMI fields ─────────────────────────────────────────────────────────────
   List<Widget> _buildEmiFields() {
+    final estimatedPrice = (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
     final total =
-        (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
+        _paymentType == 'advance' ? estimatedPrice * 0.25 : estimatedPrice;
     final plans = [3, 6, 9, 12];
     return [
       Wrap(
@@ -1945,9 +2118,7 @@ class _OrderWizardState extends State<OrderWizard> {
                     Text(
                       '${money(monthly)}/month',
                       style: TextStyle(
-                        color: selected
-                            ? AppColors.gold
-                            : AppColors.textMuted,
+                        color: selected ? AppColors.gold : AppColors.textMuted,
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
