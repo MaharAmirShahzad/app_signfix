@@ -22,7 +22,8 @@
         android:label="SignFix"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:hardwareAccelerated="true">
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true">
 
         <!-- Main Flutter activity -->
         <activity
@@ -41,20 +42,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- ── Razorpay UPI Deep Link return ─────────────────────────────
-                 Required for GPay, PhonePe, Paytm to redirect back to app
-                 after payment. Without this, the UPI app stays open and
-                 Flutter never receives the payment result callback.
-            ────────────────────────────────────────────────────────────────-->
+            <!-- Razorpay UPI Deep Link return -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <!-- Your app's UPI return scheme — must match Razorpay callback_url -->
                 <data android:scheme="signfix" android:host="payment"/>
             </intent-filter>
 
-            <!-- UPI scheme deep link (handles upi://pay?... redirects) -->
+            <!-- UPI scheme deep link -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -63,8 +59,17 @@
             </intent-filter>
         </activity>
 
-        <!-- Razorpay CheckoutActivity — let Razorpay define its own theme -->
-        <!-- Do NOT redeclare CheckoutActivity here, Razorpay AAR handles it -->
+        <!-- ── Razorpay CheckoutActivity explicit declaration ─────────────────
+             Required to fix blank WebView on Android 10+.
+             Without this, Razorpay WebView may not render on some devices.
+        ──────────────────────────────────────────────────────────────────────-->
+        <activity
+            android:name="com.razorpay.CheckoutActivity"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:theme="@style/CheckoutTheme"
+            tools:replace="android:theme"
+            tools:node="merge"/>
 
         <!-- Image Picker File Provider — override plugin's definition -->
         <provider
