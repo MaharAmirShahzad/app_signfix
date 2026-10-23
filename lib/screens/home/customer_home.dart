@@ -9,6 +9,8 @@ import '../ai/ai_chat.dart';
 import '../notifications/notifications_screen.dart';
 import '../orders/order_detail_screen.dart';
 import '../orders/order_wizard.dart';
+import '../orders/power_supply_screen.dart';
+import '../orders/signage_designer_screen.dart';
 import '../profile/profile_screen.dart';
 import '../service/service_request.dart';
 
@@ -23,10 +25,15 @@ class CustomerHome extends StatefulWidget {
 class _CustomerHomeState extends State<CustomerHome> {
   int _index = 0;
   late final List<Widget> _pages;
+  final _promotionBannerNotifier = ValueNotifier<String?>(null);
   // Notifier to switch ActivityScreen tab (0=orders, 1=services)
   final _trackTabNotifier = ValueNotifier<int>(0);
   final _trackRefreshNotifier = ValueNotifier<int>(0);
   void _goTo(int i) => setState(() => _index = i);
+  void _goToOrder() {
+    _promotionBannerNotifier.value = null;
+    _goTo(1);
+  }
 
   @override
   void initState() {
@@ -35,7 +42,46 @@ class _CustomerHomeState extends State<CustomerHome> {
     _pages = [
       _Dashboard(
           api: widget.api,
-          onOrder: () => _goTo(1),
+          onOrder: _goToOrder,
+          onBannerOrder: (bannerId) {
+            // Banner 2 → Signage Design Studio (full custom screen)
+            if (bannerId == 'home_banner_2') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SignageDesignerScreen(
+                    api: widget.api,
+                    promotionBannerId: bannerId,
+                    onOrderSubmitted: () {
+                      _goTo(3);
+                      _trackRefreshNotifier.value++;
+                    },
+                  ),
+                ),
+              );
+              return;
+            }
+            // Banner 3 → Power Supply & Drivers catalog
+            if (bannerId == 'home_banner_3') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PowerSupplyScreen(
+                    api: widget.api,
+                    promotionBannerId: bannerId,
+                    onOrderSubmitted: () {
+                      _goTo(3);
+                      _trackRefreshNotifier.value++;
+                    },
+                  ),
+                ),
+              );
+              return;
+            }
+            // Banner 1 (and any other banners) → standard OrderWizard with cashback
+            _promotionBannerNotifier.value = bannerId;
+            _goTo(1);
+          },
           onService: () => _goTo(2),
           onLogout: widget.onLogout,
           onGoToTrack: (tab) {
@@ -47,6 +93,7 @@ class _CustomerHomeState extends State<CustomerHome> {
           }),
       OrderWizard(
         api: widget.api,
+        promotionBannerNotifier: _promotionBannerNotifier,
         onOrderSubmitted: () {
           _goTo(3);
           _trackRefreshNotifier.value++;
@@ -64,6 +111,7 @@ class _CustomerHomeState extends State<CustomerHome> {
 
   @override
   void dispose() {
+    _promotionBannerNotifier.dispose();
     _trackTabNotifier.dispose();
     _trackRefreshNotifier.dispose();
     super.dispose();
@@ -149,7 +197,7 @@ class _CustomerHomeState extends State<CustomerHome> {
                       label: 'Order',
                       selected: _index == 1,
                       color: AppColors.gold,
-                      onTap: () => setState(() => _index = 1)),
+                      onTap: _goToOrder),
                   _NavItem(
                       icon: Icons.build_outlined,
                       selectedIcon: Icons.build,
@@ -247,11 +295,13 @@ class _Dashboard extends StatefulWidget {
   const _Dashboard(
       {required this.api,
       required this.onOrder,
+      required this.onBannerOrder,
       required this.onService,
       required this.onGoToTrack,
       required this.onLogout});
   final ApiClient api;
   final VoidCallback onOrder;
+  final ValueChanged<String> onBannerOrder;
   final VoidCallback onService;
   final void Function(int tabIndex) onGoToTrack; // 0=orders, 1=services
   final VoidCallback onLogout;
@@ -269,9 +319,9 @@ class _DashboardState extends State<_Dashboard> {
   Timer? _bannerTimer;
 
   static const _banners = [
-    'assets/images/banner1.jpeg',
-    'assets/images/banner2.jpeg',
-    'assets/images/banner3.jpeg',
+    _PromoBanner(id: 'home_banner_1', asset: 'assets/images/banner1.jpeg'),
+    _PromoBanner(id: 'home_banner_2', asset: 'assets/images/banner2.jpeg'),
+    _PromoBanner(id: 'home_banner_3', asset: 'assets/images/banner3.jpeg'),
   ];
 
   @override
@@ -401,7 +451,7 @@ class _DashboardState extends State<_Dashboard> {
               banners: _banners,
               currentPage: _bannerPage,
               onPageChanged: (i) => setState(() => _bannerPage = i),
-              onTap: widget.onOrder,
+              onBannerTap: (bannerId) => widget.onBannerOrder(bannerId),
             ),
 
             Padding(
@@ -676,13 +726,34 @@ class _PromoBannerSlider extends StatelessWidget {
     required this.banners,
     required this.currentPage,
     required this.onPageChanged,
-    required this.onTap,
+    required this.onBannerTap,
   });
   final PageController controller;
-  final List<String> banners;
+  final List<_PromoBanner> banners;
   final int currentPage;
   final ValueChanged<int> onPageChanged;
-  final VoidCallback onTap;
+  final ValueChanged<String> onBannerTap;
+
+  // ── Per-banner badge config ─────────────────────────────────────────────────
+  static Map<String, ({IconData icon, String label, Color color})> _badgeConfig(String id) {
+    switch (id) {
+      case 'home_banner_2':
+        return {
+          'top': (icon: Icons.palette_outlined, label: 'Neon & Signage Design', color: const Color(0xFF8B5CF6)),
+          'cta': (icon: Icons.auto_awesome_outlined, label: 'Design Studio', color: const Color(0xFF8B5CF6)),
+        };
+      case 'home_banner_3':
+        return {
+          'top': (icon: Icons.bolt_outlined, label: 'Power Supply Catalog', color: const Color(0xFF06B6D4)),
+          'cta': (icon: Icons.electrical_services_outlined, label: 'Browse Drivers', color: const Color(0xFF06B6D4)),
+        };
+      default: // home_banner_1
+        return {
+          'top': (icon: Icons.savings_outlined, label: '₹200 Cashback Offer', color: AppColors.success),
+          'cta': (icon: Icons.shopping_cart_outlined, label: 'Shop Now', color: AppColors.gold),
+        };
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Column(children: [
@@ -692,63 +763,109 @@ class _PromoBannerSlider extends StatelessWidget {
             controller: controller,
             onPageChanged: onPageChanged,
             itemCount: banners.length,
-            itemBuilder: (_, i) => GestureDetector(
-              onTap: onTap,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(0),
-                  child: Stack(fit: StackFit.expand, children: [
-                    Image.asset(banners[i], fit: BoxFit.cover),
-                    // Dark overlay at bottom
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        height: 60,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              AppColors.navyDeep.withValues(alpha: .85),
-                              Colors.transparent,
+            itemBuilder: (_, i) {
+              final cfg = _badgeConfig(banners[i].id);
+              final topBadge = cfg['top']!;
+              final ctaBadge = cfg['cta']!;
+              return GestureDetector(
+                onTap: () => onBannerTap(banners[i].id),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(0),
+                    child: Stack(fit: StackFit.expand, children: [
+                      Image.asset(banners[i].asset, fit: BoxFit.cover),
+                      // Dark overlay at bottom
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                AppColors.navyDeep.withValues(alpha: .85),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Top-left badge (cashback / category label)
+                      Positioned(
+                        top: 14,
+                        left: 14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: topBadge.color.withValues(alpha: .92),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: .3),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(topBadge.icon,
+                                  size: 14, color: AppColors.white),
+                              const SizedBox(width: 5),
+                              Text(
+                                topBadge.label,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                       ),
-                    ),
-                    // Shop Now badge
-                    Positioned(
-                      bottom: 12,
-                      right: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.gold,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
+                      // Bottom-right CTA badge
+                      Positioned(
+                        bottom: 12,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: ctaBadge.color,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.shopping_cart_outlined,
-                                  size: 14, color: AppColors.navyDeep),
-                              SizedBox(width: 5),
-                              Text('Shop Now',
+                              Icon(ctaBadge.icon,
+                                  size: 14,
+                                  color: ctaBadge.color == AppColors.gold
+                                      ? AppColors.navyDeep
+                                      : AppColors.white),
+                              const SizedBox(width: 5),
+                              Text(ctaBadge.label,
                                   style: TextStyle(
-                                    color: AppColors.navyDeep,
+                                    color: ctaBadge.color == AppColors.gold
+                                        ? AppColors.navyDeep
+                                        : AppColors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                   )),
-                            ]),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ]),
+                    ]),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
         // Dot indicators
@@ -770,6 +887,13 @@ class _PromoBannerSlider extends StatelessWidget {
               ),
             )),
       ]);
+}
+
+class _PromoBanner {
+  const _PromoBanner({required this.id, required this.asset});
+
+  final String id;
+  final String asset;
 }
 
 // ── Stat Tile ─────────────────────────────────────────────────────────────────

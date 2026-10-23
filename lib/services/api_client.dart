@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -194,6 +195,12 @@ final _mockNotifications = <Map<String, dynamic>>[
   },
 ];
 
+final _mockWallet = <String, dynamic>{
+  'balance': 0.0,
+  'totalCashbackEarned': 0.0,
+  'transactions': <Map<String, dynamic>>[],
+};
+
 Map<String, dynamic> _mockQuote(Map<String, dynamic> body) {
   final l = (body['length'] as num?)?.toDouble() ?? 10;
   final w = (body['width'] as num?)?.toDouble() ?? 3;
@@ -336,10 +343,61 @@ class ApiClient {
     await prefs.remove('userEmail');
   }
 
+  // ── Password Reset ────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> forgotPassword(String identifier) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      return {
+        'message':
+            'If the account exists, a password reset OTP has been sent to the registered email address.'
+      };
+    }
+    return _request('POST', '/auth/forgot-password',
+        body: {'identifier': identifier.trim()});
+  }
+
+  Future<Map<String, dynamic>> verifyResetOtp(
+      String identifier, String otp) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      if (otp == '123456') {
+        return {
+          'verified': true,
+          'resetToken':
+              'mock-reset-token-${DateTime.now().millisecondsSinceEpoch}'
+        };
+      }
+      throw const ApiException('Invalid or expired OTP');
+    }
+    return _request('POST', '/auth/verify-otp', body: {
+      'identifier': identifier.trim(),
+      'otp': otp.trim(),
+      'purpose': 'reset_password',
+    });
+  }
+
+  Future<Map<String, dynamic>> resetPassword(
+      String resetToken, String password) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      return {'message': 'Password reset successfully.'};
+    }
+    return _request('POST', '/auth/reset-password', body: {
+      'resetToken': resetToken,
+      'password': password,
+    });
+  }
+
+
   Future<Map<String, dynamic>> getProfile() async {
     if (mockMode) {
       await Future.delayed(_mockDelay);
-      return Map<String, dynamic>.from(_mockProfile);
+      return {
+        ..._mockProfile,
+        'walletBalance': (_mockWallet['balance'] as num?)?.toDouble() ?? 0.0,
+        'totalCashbackEarned':
+            (_mockWallet['totalCashbackEarned'] as num?)?.toDouble() ?? 0.0,
+      };
     }
     return _request('GET', '/customer/profile');
   }
@@ -385,18 +443,81 @@ class ApiClient {
     if (mockMode) {
       await Future.delayed(_mockDelay);
       final id = 'ORD-${1000 + _mockOrders.length + 1}';
+      final double estimatedPrice =
+          (body['estimatedPrice'] as num?)?.toDouble() ?? 0.0;
+      double currentBal = (_mockWallet['balance'] as num?)?.toDouble() ?? 0.0;
+      double totalEarned =
+          (_mockWallet['totalCashbackEarned'] as num?)?.toDouble() ?? 0.0;
+      final bool useWallet = body['useWallet'] == true;
+      final double walletApplied =
+          useWallet ? min(currentBal, estimatedPrice) : 0.0;
+      final double finalPrice = max(0.0, estimatedPrice - walletApplied);
+      final txList =
+          _mockWallet['transactions'] as List<Map<String, dynamic>>;
+
+      if (walletApplied > 0) {
+        final double prev = currentBal;
+        currentBal -= walletApplied;
+        txList.insert(0, {
+          'transactionId': txList.length + 1,
+          'orderNo': id,
+          'type': 'wallet_debit',
+          'amount': walletApplied,
+          'previousBalance': prev,
+          'balanceAfter': currentBal,
+          'status': 'successful',
+          'description': 'Wallet balance applied to Order $id',
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+      }
+
+      final String? bannerId = body['promotionBannerId']?.toString();
+      final bool eligible = bannerId != null &&
+          const {'home_banner_1', 'home_banner_2', 'home_banner_3'}
+              .contains(bannerId);
+      final double cashback = eligible ? 200.0 : 0.0;
+      if (cashback > 0) {
+        final double prev = currentBal;
+        currentBal += cashback;
+        totalEarned += cashback;
+        txList.insert(0, {
+          'transactionId': txList.length + 1,
+          'orderNo': id,
+          'type': 'cashback_credit',
+          'amount': cashback,
+          'previousBalance': prev,
+          'balanceAfter': currentBal,
+          'status': 'successful',
+          'description':
+              'Cashback ₹200 credited for promotional banner order $bannerId - Order $id',
+          'createdAt': DateTime.now().toIso8601String(),
+        });
+      }
+
+      _mockWallet['balance'] = currentBal;
+      _mockWallet['totalCashbackEarned'] = totalEarned;
+
       _mockOrders.insert(0, {
         ...body,
         'id': id,
-        'status': 'pending',
+        'estimatedPrice': finalPrice,
+        'walletDiscountApplied': walletApplied,
+        'cashbackEarned': cashback,
+        'status': 'under_review',
         'createdAt': DateTime.now().toString().substring(0, 10),
         'updatedAt': DateTime.now().toString().substring(0, 10),
         'statusHistory': [
-          {'status': 'pending', 'time': DateTime.now().toString().substring(0, 16)}
+          {'status': 'under_review', 'time': DateTime.now().toString().substring(0, 16)}
         ],
       });
       _mockProfile['totalOrders'] = (_mockProfile['totalOrders'] as int) + 1;
-      return {'id': id, 'message': 'Order received successfully.'};
+      return {
+        'id': id,
+        'estimatedPrice': finalPrice,
+        'walletDiscountApplied': walletApplied,
+        'cashbackEarned': cashback,
+        'message': 'Order placed successfully.',
+      };
     }
     return _request('POST', '/orders', body: body);
   }
@@ -407,6 +528,19 @@ class ApiClient {
       return List<dynamic>.from(_mockOrders);
     }
     return (await _request('GET', '/customer/orders'))['data'] as List<dynamic>? ?? [];
+  }
+
+  Future<Map<String, dynamic>> wallet() async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      return {
+        ..._mockWallet,
+        'transactions': List<Map<String, dynamic>>.from(
+          _mockWallet['transactions'] as List<Map<String, dynamic>>,
+        ),
+      };
+    }
+    return _request('GET', '/customer/wallet');
   }
 
   Future<Map<String, dynamic>> orderDetail(String id) async {
@@ -615,7 +749,26 @@ class ApiClient {
           as List<dynamic>? ??
       [];
 
-  // ΓöÇΓöÇ AI ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── AI & Designs ───────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> createDesignRequest(Map<String, dynamic> data) =>
+      _request('POST', '/customer/designs', body: data);
+
+  Future<Map<String, dynamic>> generateDesignPreview(
+          Map<String, dynamic> data) =>
+      _request('POST', '/customer/designs/preview', body: data);
+
+  Future<Map<String, dynamic>> generateDesignConcept(int designId,
+          {String? prompt}) =>
+      _request('POST', '/customer/designs/$designId/generate',
+          body: {if (prompt != null) 'prompt': prompt});
+
+  Future<Map<String, dynamic>> getDesign(int designId) =>
+      _request('GET', '/customer/designs/$designId');
+
+  Future<List<dynamic>> getDesigns() async =>
+      (await _request('GET', '/customer/designs'))['data'] as List<dynamic>? ??
+      [];
+
   Future<Map<String, dynamic>> getAiConfig() =>
       _request('GET', '/customer/ai/config');
 
@@ -679,6 +832,9 @@ class ApiClient {
           'Cannot connect to SignFix. Check your network or API URL.');
     } on HttpException {
       throw const ApiException('The SignFix server could not be reached.');
+    } on http.ClientException {
+      throw const ApiException(
+          'Server connection was closed unexpectedly. Please check your network or try again.');
     }
   }
 

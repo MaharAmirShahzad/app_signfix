@@ -15,4 +15,10 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+
+    <!-- Razorpay CheckoutActivity theme — fixes blank WebView on Android 10+ -->
+    <style name="CheckoutTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:hardwareAccelerated">true</item>
+    </style>
 </resources>

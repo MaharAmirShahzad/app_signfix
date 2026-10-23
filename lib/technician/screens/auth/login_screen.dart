@@ -4,6 +4,8 @@ import '../../services/api_client.dart';
 import '../../widgets/common.dart';
 import '../registration/reg_step1_personal.dart';
 import '../registration/registration_data.dart';
+import '../../../screens/auth/forgot_password_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -264,7 +266,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         loading: _loading,
                         onPressed: _submit,
                         child: const Text('Start Work')),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ForgotPasswordScreen(
+                            technicianApi: widget.api,
+                            initialEmail: _email.text.trim(),
+                            portalName: 'Technician',
+                          ),
+                        ),
+                      ),
+                      child: const Text('Forgot password?'),
+                    ),
+                    const SizedBox(height: 12),
+
 
                     // Divider
                     const Row(children: [

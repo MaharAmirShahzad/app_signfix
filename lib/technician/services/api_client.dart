@@ -230,6 +230,52 @@ class TechnicianApi {
     await p.remove('technician_token');
   }
 
+  // ── Password Reset ────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> forgotPassword(String identifier) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      return {
+        'message':
+            'If the account exists, a password reset OTP has been sent to the registered email address.'
+      };
+    }
+    return _request('POST', '/auth/forgot-password',
+        body: {'identifier': identifier.trim()});
+  }
+
+  Future<Map<String, dynamic>> verifyResetOtp(
+      String identifier, String otp) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      if (otp == '123456') {
+        return {
+          'verified': true,
+          'resetToken':
+              'mock-reset-token-${DateTime.now().millisecondsSinceEpoch}'
+        };
+      }
+      throw const ApiException('Invalid or expired OTP');
+    }
+    return _request('POST', '/auth/verify-otp', body: {
+      'identifier': identifier.trim(),
+      'otp': otp.trim(),
+      'purpose': 'reset_password',
+    });
+  }
+
+  Future<Map<String, dynamic>> resetPassword(
+      String resetToken, String password) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      return {'message': 'Password reset successfully.'};
+    }
+    return _request('POST', '/auth/reset-password', body: {
+      'resetToken': resetToken,
+      'password': password,
+    });
+  }
+
+
   Future<Map<String, dynamic>> dashboard() async {
     if (mockMode) {
       await Future.delayed(_mockDelay);

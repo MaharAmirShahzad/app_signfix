@@ -3,6 +3,8 @@ import '../../core/app_theme.dart';
 import '../../services/api_client.dart';
 import '../../widgets/common.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -239,18 +241,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 10),
 
                   TextButton(
-                    onPressed: () => showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        backgroundColor: AppColors.navyDark,
-                        title: const Text('Password Recovery', style: TextStyle(color: AppColors.white)),
-                        content: const Text(
-                          'Please contact SignFix support to reset your password.',
-                          style: TextStyle(color: AppColors.textLight),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ForgotPasswordScreen(
+                          customerApi: widget.api,
+                          initialEmail: _email.text.trim(),
+                          portalName: 'Customer',
                         ),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
-                        ],
                       ),
                     ),
                     child: const Text('Forgot password?'),

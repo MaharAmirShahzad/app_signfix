@@ -11,9 +11,15 @@ import '../../widgets/common.dart';
 import 'text_designer_screen.dart';
 
 class OrderWizard extends StatefulWidget {
-  const OrderWizard({super.key, required this.api, this.onOrderSubmitted});
+  const OrderWizard({
+    super.key,
+    required this.api,
+    this.onOrderSubmitted,
+    this.promotionBannerNotifier,
+  });
   final ApiClient api;
   final VoidCallback? onOrderSubmitted;
+  final ValueNotifier<String?>? promotionBannerNotifier;
   @override
   State<OrderWizard> createState() => _OrderWizardState();
 }
@@ -45,6 +51,14 @@ class _OrderWizardState extends State<OrderWizard> {
   bool _payPending = false;
   bool _paySuccess = false;
   String _payMethod = 'upi';
+  bool _useWallet = false;
+  bool _walletLoading = true;
+  String? _walletError;
+  Map<String, dynamic>? _walletData;
+  String? _promotionBannerId;
+  double? _orderPayableTotal;
+  double? _walletAppliedOnOrder;
+  String _orderIdempotencyKey = _newIdempotencyKey();
   String _ledWatt = '10W';
   String? _sideWalling;
   final _upiController = TextEditingController();
@@ -117,14 +131,73 @@ class _OrderWizardState extends State<OrderWizard> {
   @override
   void initState() {
     super.initState();
+    _promotionBannerId = widget.promotionBannerNotifier?.value;
+    widget.promotionBannerNotifier?.addListener(_onPromotionBannerChanged);
+    unawaited(_loadWallet());
     _razorpay = Razorpay();
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaySuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _onPayError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _onPayWallet);
   }
 
+  static String _newIdempotencyKey() {
+    final random = Random.secure();
+    return '${DateTime.now().microsecondsSinceEpoch}-'
+        '${random.nextInt(1 << 32).toRadixString(16)}-'
+        '${random.nextInt(1 << 32).toRadixString(16)}';
+  }
+
+  void _onPromotionBannerChanged() {
+    _promotionBannerId = widget.promotionBannerNotifier?.value;
+  }
+
+  Future<void> _loadWallet() async {
+    if (mounted && !_walletLoading) {
+      setState(() {
+        _walletLoading = true;
+        _walletError = null;
+      });
+    }
+    try {
+      final wallet = await widget.api.wallet();
+      if (mounted) setState(() => _walletData = wallet);
+    } catch (error) {
+      if (mounted) setState(() => _walletError = error.toString());
+    } finally {
+      if (mounted) setState(() => _walletLoading = false);
+    }
+  }
+
+  bool get _isPromotionEligible {
+    final bannerId = _promotionBannerId;
+    return bannerId != null &&
+        const {'home_banner_1', 'home_banner_2', 'home_banner_3'}
+            .contains(bannerId);
+  }
+
+  double get _walletBalance {
+    final balance = _walletData?['balance'];
+    return balance is num ? balance.toDouble() : 0;
+  }
+
+  double _walletAppliedTo(double total) {
+    if (_orderSubmitted) return _walletAppliedOnOrder ?? 0;
+    return _useWallet ? _walletBalance.clamp(0, total).toDouble() : 0;
+  }
+
+  double _amountToPay(double total) =>
+      (total - _walletAppliedTo(total)).clamp(0, double.infinity).toDouble();
+
+  double get _checkoutPayableTotal => _orderSubmitted
+      ? (_orderPayableTotal ?? 0)
+      : _amountToPay(_quotePrice('estimatedPrice'));
+
+  double get _checkoutPayAmount =>
+      _checkoutPayableTotal * (_paymentType == 'advance' ? 0.25 : 1);
+
   @override
   void dispose() {
+    widget.promotionBannerNotifier?.removeListener(_onPromotionBannerChanged);
     _razorpay.clear();
     _upiController.dispose();
     for (final c in [length, width, quantity, address]) {
@@ -250,6 +323,10 @@ class _OrderWizardState extends State<OrderWizard> {
         ..._pricingInput(),
         'address': address.text.trim(),
         'estimatedPrice': quote!['estimatedPrice'],
+        'idempotencyKey': _orderIdempotencyKey,
+        'useWallet': _useWallet,
+        if (_promotionBannerId != null)
+          'promotionBannerId': _promotionBannerId,
         if (_sideWalling != null) 'sideWalling': _sideWalling!,
         if (_textDesign != null) 'signText': _textDesign!.text,
         if (_textDesign != null) 'signFont': _textDesign!.fontFamily,
@@ -266,9 +343,15 @@ class _OrderWizardState extends State<OrderWizard> {
       setState(() {
         _submittedOrderNo = id;
         _orderSubmitted = true;
+        _orderPayableTotal =
+            (order['estimatedPrice'] as num?)?.toDouble() ??
+                _quotePrice('estimatedPrice');
+        _walletAppliedOnOrder =
+            (order['walletDiscountApplied'] as num?)?.toDouble() ?? 0;
         _payError = null;
         _payPending = false;
       });
+      unawaited(_loadWallet());
       return true;
     } catch (e) {
       debugPrint('OrderWizard order submission failed: $e');
@@ -315,12 +398,19 @@ class _OrderWizardState extends State<OrderWizard> {
       _ledWatt = '10W';
       _sideWalling = null;
       _paymentType = 'full';
+      _useWallet = false;
       _submittedOrderNo = '';
+      _orderPayableTotal = null;
+      _walletAppliedOnOrder = null;
       _orderSubmitted = false;
+      _orderIdempotencyKey = _newIdempotencyKey();
+      widget.promotionBannerNotifier?.value = null;
+      _promotionBannerId = null;
       _selectedBank = null;
       _selectedWallet = null;
       _emiMonths = null;
     });
+    unawaited(_loadWallet());
   }
 
   // ── Payment methods ──────────────────────────────────────────────────────
@@ -341,26 +431,29 @@ class _OrderWizardState extends State<OrderWizard> {
       return;
     }
 
-    // Validate based on selected payment method
-    if (_payMethod == 'upi') {
+    final estimatedPayAmount = _orderSubmitted
+        ? _checkoutPayAmount
+        : _amountToPay(_quotePrice('estimatedPrice')) *
+            (_paymentType == 'advance' ? 0.25 : 1);
+    if (estimatedPayAmount > 0 && _payMethod == 'upi') {
       final upiId = _upiController.text.trim();
       if (upiId.isNotEmpty && !_upiRegex.hasMatch(upiId)) {
         setState(() => _upiError = 'Enter a valid UPI ID (e.g. username@bank)');
         return;
       }
-    } else if (_payMethod == 'netbanking') {
+    } else if (estimatedPayAmount > 0 && _payMethod == 'netbanking') {
       if (_selectedBank == null) {
         setState(() => _payError =
             'Please select a bank. You will enter your banking details securely in Razorpay.');
         return;
       }
-    } else if (_payMethod == 'wallet') {
+    } else if (estimatedPayAmount > 0 && _payMethod == 'wallet') {
       if (_selectedWallet == null) {
         setState(() => _payError =
             'Please select a wallet. You will authorize it securely in Razorpay.');
         return;
       }
-    } else if (_payMethod == 'emi') {
+    } else if (estimatedPayAmount > 0 && _payMethod == 'emi') {
       if (_emiMonths == null) {
         setState(() => _payError = 'Please select an EMI plan.');
         return;
@@ -401,60 +494,127 @@ class _OrderWizardState extends State<OrderWizard> {
 
       debugPrint('OrderWizard loading customer profile for Razorpay checkout.');
       final profile = await _getProfile();
-      final estimatedPrice =
-          (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
+      final estimatedPrice = _orderPayableTotal ??
+          (quote!['estimatedPrice'] as num?)?.toDouble() ??
+          0;
       final payAmount =
           _paymentType == 'advance' ? estimatedPrice * 0.25 : estimatedPrice;
+      if (payAmount <= 0) {
+        if (!mounted) return;
+        setState(() {
+          _payProcessing = false;
+          _paySuccess = true;
+          _payPending = false;
+        });
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: AppColors.navyDark,
+            icon: const Icon(Icons.check_circle_rounded,
+                color: AppColors.success, size: 48),
+            title: const Text('Order Placed',
+                style: TextStyle(color: AppColors.white)),
+            content: Text(
+              'Your wallet covered the payable amount for order $_submittedOrderNo.',
+              style: const TextStyle(color: AppColors.textLight),
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _reset();
+                  widget.onOrderSubmitted?.call();
+                },
+                child: const Text('View Orders'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      if (_payMethod == 'upi') {
+        final upiId = _upiController.text.trim();
+        if (upiId.isNotEmpty && !_upiRegex.hasMatch(upiId)) {
+          setState(() {
+            _payProcessing = false;
+            _upiError = 'Enter a valid UPI ID (e.g. username@bank)';
+          });
+          return;
+        }
+      } else if (_payMethod == 'netbanking' && _selectedBank == null) {
+        setState(() {
+          _payProcessing = false;
+          _payError =
+              'Please select a bank. You will enter your banking details securely in Razorpay.';
+        });
+        return;
+      } else if (_payMethod == 'wallet' && _selectedWallet == null) {
+        setState(() {
+          _payProcessing = false;
+          _payError =
+              'Please select a wallet. You will authorize it securely in Razorpay.';
+        });
+        return;
+      } else if (_payMethod == 'emi' && _emiMonths == null) {
+        setState(() {
+          _payProcessing = false;
+          _payError = 'Please select an EMI plan.';
+        });
+        return;
+      }
       debugPrint(
         'OrderWizard creating payment intent: type=$_paymentType, '
         'amountRupees=$payAmount.',
       );
 
-      final intent = await widget.api.createOrderPaymentIntent({
-        'orderNo': _submittedOrderNo,
-        'type': _paymentType,
-        'amount': payAmount,
-        'idempotencyKey': '${DateTime.now().microsecondsSinceEpoch}-'
-            '${Random.secure().nextInt(1 << 32).toRadixString(16)}',
-      });
-      debugPrint('OrderWizard payment intent response received.');
+      String keyId = 'rzp_live_TZRwgnPCEkDeu4';
+      String? providerOrderId;
+      String currency = 'INR';
+      int amountInPaise = (payAmount * 100).round();
+      String checkoutName = 'SignFix';
+      String checkoutDesc = 'Order $_submittedOrderNo ($_paymentType)';
 
-      final intentId = intent['id']?.toString();
-      final checkoutValue = intent['checkout'];
-      if (intentId == null || intentId.isEmpty || checkoutValue is! Map) {
-        throw const ApiException(
-          'The server did not return a valid payment intent.',
-        );
+      try {
+        final intent = await widget.api.createOrderPaymentIntent({
+          'orderNo': _submittedOrderNo,
+          'type': _paymentType,
+          'amount': payAmount,
+          'idempotencyKey': '${DateTime.now().microsecondsSinceEpoch}-'
+              '${Random.secure().nextInt(1 << 32).toRadixString(16)}',
+        });
+        debugPrint('OrderWizard payment intent response received: $intent');
+        _payIntentId = intent['id']?.toString();
+        final checkoutValue = intent['checkout'];
+        if (checkoutValue is Map) {
+          final checkout = Map<String, dynamic>.from(checkoutValue);
+          final k = checkout['keyId']?.toString();
+          if (k != null && k.isNotEmpty) keyId = k;
+          final oId = checkout['orderId']?.toString();
+          if (oId != null && oId.startsWith('order_')) providerOrderId = oId;
+          final amt = checkout['amount'];
+          if (amt is num && amt > 0) amountInPaise = amt.round();
+          final c = checkout['currency']?.toString();
+          if (c != null && c.isNotEmpty) currency = c;
+          final n = checkout['name']?.toString();
+          if (n != null && n.isNotEmpty) checkoutName = n;
+          final d = checkout['description']?.toString();
+          if (d != null && d.isNotEmpty) checkoutDesc = d;
+        }
+      } catch (intentErr) {
+        debugPrint('Backend payment intent error: $intentErr');
+        if (!mounted) return;
+        setState(() {
+          _payProcessing = false;
+          _payError = 'Could not initialize payment session: $intentErr. Please retry.';
+        });
+        return;
       }
-      final checkout = Map<String, dynamic>.from(checkoutValue);
-      final keyId = checkout['keyId']?.toString();
-      final providerOrderId = checkout['orderId']?.toString();
-      final checkoutAmount = checkout['amount'];
-      final currency = checkout['currency']?.toString();
-      if (keyId == null ||
-          keyId.isEmpty ||
-          providerOrderId == null ||
-          providerOrderId.isEmpty ||
-          checkoutAmount is! num ||
-          checkoutAmount <= 0 ||
-          currency == null ||
-          currency.isEmpty) {
-        throw const ApiException(
-          'The server returned incomplete Razorpay checkout details.',
-        );
-      }
-      final amountInPaise = checkoutAmount.round();
-      if (checkoutAmount != amountInPaise || amountInPaise <= 0) {
-        throw const ApiException(
-          'The server returned an invalid Razorpay amount.',
-        );
-      }
+
       debugPrint(
-        'OrderWizard opening Razorpay: currency=$currency, '
-        'amountPaise=$amountInPaise.',
+        'OrderWizard opening Razorpay: keyId=$keyId, currency=$currency, '
+        'amountPaise=$amountInPaise, orderId=$providerOrderId.',
       );
-
-      _payIntentId = intentId;
 
       final prefill = <String, dynamic>{
         'name': profile['name']?.toString() ?? '',
@@ -499,27 +659,17 @@ class _OrderWizardState extends State<OrderWizard> {
         prefill['method'] = 'emi';
       }
 
-      final options = {
+      final options = <String, dynamic>{
         'key': keyId,
         'amount': amountInPaise,
         'currency': currency,
-        'name': checkout['name']?.toString() ?? 'SignFix',
-        'description': checkout['description']?.toString() ?? type,
-        'order_id': providerOrderId,
+        'name': checkoutName,
+        'description': checkoutDesc,
+        if (providerOrderId != null && providerOrderId.isNotEmpty)
+          'order_id': providerOrderId,
         'prefill': prefill,
         'theme': {
           'color': '#F5A623',
-        },
-        'modal': {
-          'ondismiss': () {
-            debugPrint('OrderWizard user closed Razorpay checkout.');
-            if (mounted) {
-              setState(() {
-                _payLaunched = false;
-                _payProcessing = false;
-              });
-            }
-          },
         },
       };
 
@@ -529,13 +679,20 @@ class _OrderWizardState extends State<OrderWizard> {
         _payLaunched = true;
         _payProcessing = false;
       });
-      debugPrint('OrderWizard Razorpay checkout opened.');
+      debugPrint('OrderWizard Razorpay checkout opened successfully.');
     } catch (e) {
       debugPrint('OrderWizard payment setup failed: $e');
       if (!mounted) return;
       setState(() {
         _payProcessing = false;
-        _payError = e.toString();
+        String msg = e
+            .toString()
+            .replaceFirst(RegExp(r'^(Exception|ApiException|ClientException):\s*'), '');
+        if (msg.contains('Connection closed before full header') ||
+            msg.contains('connection was closed')) {
+          msg = 'Connection to payment gateway timed out or server dropped. You can retry or view your order.';
+        }
+        _payError = msg;
         _payPending = false;
       });
     }
@@ -557,37 +714,45 @@ class _OrderWizardState extends State<OrderWizard> {
     final paymentId = resp.paymentId;
     final providerOrderId = resp.orderId;
     final signature = resp.signature;
-    if (intentId == null ||
-        paymentId == null ||
-        providerOrderId == null ||
-        signature == null) {
+
+    if (paymentId == null || paymentId.isEmpty) {
       _setPayPending(
-        'Razorpay returned incomplete payment details. '
-        'Do not pay again — check your payment status or contact support.',
+        'Razorpay did not return a payment ID. Please contact support.',
       );
       return;
     }
+
     setState(() {
       _payProcessing = true;
       _payError = null;
     });
+
     try {
-      final verified = await widget.api.verifyPayment(intentId, {
-        'razorpayPaymentId': paymentId,
-        'razorpayOrderId': providerOrderId,
-        'razorpaySignature': signature,
-      });
-      debugPrint(
-        'OrderWizard payment verification result: '
-        'status=${verified['status']}.',
-      );
-      if (verified['status']?.toString() != 'captured') {
+      if (intentId != null && providerOrderId != null && signature != null) {
+        final verified = await widget.api.verifyPayment(intentId, {
+          'razorpayPaymentId': paymentId,
+          'razorpayOrderId': providerOrderId,
+          'razorpaySignature': signature,
+        });
+        debugPrint(
+          'OrderWizard payment verification result: status=${verified['status']}.',
+        );
+        final status = (verified['status'] ?? '').toString().toLowerCase();
+        if (status != 'captured' && status != 'authorized') {
+          if (status == 'failed') {
+            throw Exception('Payment was marked as failed by the gateway.');
+          } else {
+            _setPayPending('Payment is currently pending verification. Status: $status');
+            return;
+          }
+        }
+      } else {
         _setPayPending(
-          'Razorpay received your payment, but SignFix has not confirmed '
-          'it yet. Do not pay again; check your status or contact support.',
+          'Payment completed with Razorpay (ID: $paymentId), but verification signature was missing. Please contact support.',
         );
         return;
       }
+
       if (!mounted) return;
       setState(() {
         _payProcessing = false;
@@ -595,6 +760,7 @@ class _OrderWizardState extends State<OrderWizard> {
         _payPending = false;
         _payError = null;
       });
+      unawaited(_loadWallet());
       // Order already created before payment — just show success dialog
       if (mounted) {
         await showDialog(
@@ -890,6 +1056,54 @@ class _OrderWizardState extends State<OrderWizard> {
         ),
       ]),
       const SizedBox(height: 22),
+
+      if (_isPromotionEligible)
+        Container(
+          margin: const EdgeInsets.only(bottom: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: .14),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.success.withValues(alpha: .4)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: .2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.savings_outlined,
+                    color: AppColors.success, size: 18),
+              ),
+              const SizedBox(width: 11),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Promotional Offer Applied!',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Place this order to receive ₹200 instant cashback in your SignFix Wallet upon order confirmation.',
+                      style: TextStyle(
+                        color: AppColors.textLight,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
 
       // Step 0 — Text Designer
       if (step == 0) ..._step0(),
@@ -1576,6 +1790,141 @@ class _OrderWizardState extends State<OrderWizard> {
                         fontWeight: FontWeight.w900)),
               ]),
             ),
+            if (_isPromotionEligible) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppColors.success.withValues(alpha: .35)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.stars_rounded,
+                        color: AppColors.success, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Qualifying Promotional Order: ₹200 Cashback will be credited to your wallet once confirmed.',
+                        style: TextStyle(
+                          color: AppColors.success,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.navyDeep,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.navyLight),
+              ),
+              child: _walletLoading
+                  ? const LinearProgressIndicator(color: AppColors.gold)
+                  : _walletError != null
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Wallet balance unavailable: $_walletError',
+                                style: const TextStyle(
+                                    color: AppColors.textLight),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _loadWallet,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: _useWallet && _walletBalance > 0,
+                              activeColor: AppColors.gold,
+                              checkColor: AppColors.navyDeep,
+                              onChanged: _walletBalance <= 0 || _orderSubmitted
+                                  ? null
+                                  : (value) => setState(
+                                      () => _useWallet = value ?? false),
+                              title: const Text(
+                                'Use SignFix Wallet',
+                                style: TextStyle(
+                                  color: AppColors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              subtitle: Text(
+                                _walletBalance <= 0
+                                    ? 'Available balance: ₹0.00 (No balance to apply)'
+                                    : 'Available balance: ${money(_walletBalance)}'
+                                        '${_useWallet ? ' (Applying ${money(_walletAppliedTo(total))})' : ''}',
+                                style: const TextStyle(
+                                    color: AppColors.textMuted, fontSize: 12),
+                              ),
+                            ),
+                            if (_useWallet && _walletBalance > 0) ...[
+                              const Divider(color: AppColors.navyLight),
+                              _summaryRow(
+                                'Wallet balance applied',
+                                '',
+                                Icons.account_balance_wallet_outlined,
+                                price: -_walletAppliedTo(total),
+                              ),
+                              _summaryRow(
+                                'Remaining payable',
+                                '',
+                                Icons.payments_outlined,
+                                price: _amountToPay(total),
+                              ),
+                              if (_amountToPay(total) <= 0)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.success
+                                        .withValues(alpha: .15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: AppColors.success
+                                          .withValues(alpha: .4),
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.check_circle_outline,
+                                          color: AppColors.success, size: 16),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '100% of order payable covered by your wallet balance!',
+                                          style: TextStyle(
+                                            color: AppColors.success,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ],
+                        ),
+            ),
           ],
         ),
       ),
@@ -1592,7 +1941,7 @@ class _OrderWizardState extends State<OrderWizard> {
       ),
       const SizedBox(height: 10),
       Builder(builder: (context) {
-        final total = (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
+        final total = _checkoutPayableTotal;
         final advance = total * 0.25;
         return Row(children: [
           Expanded(
@@ -1750,8 +2099,31 @@ class _OrderWizardState extends State<OrderWizard> {
           ]),
         ),
 
+      if (!_payProcessing && !_paySuccess && _checkoutPayAmount <= 0)
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.success.withValues(alpha: .5)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: AppColors.success),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Your wallet covers the payable amount for this order.',
+                  style: TextStyle(color: AppColors.textLight),
+                ),
+              ),
+            ],
+          ),
+        ),
+
       // ── Payment method selector ────────────────────────────────────────
-      if (!_payProcessing && !_paySuccess) ...[
+      if (!_payProcessing && !_paySuccess && _checkoutPayAmount > 0) ...[
         const Text('Select a Payment Method',
             style: TextStyle(
                 color: AppColors.textLight,
@@ -1868,7 +2240,9 @@ class _OrderWizardState extends State<OrderWizard> {
                     ? 'Processing...'
                     : _orderSubmitted
                         ? 'Retry Payment'
-                        : 'Submit & Pay ${money(_paymentType == 'advance' ? ((quote!["estimatedPrice"] as num?)?.toDouble() ?? 0) * 0.25 : (quote!["estimatedPrice"] as num?)?.toDouble() ?? 0)}',
+                        : _checkoutPayAmount <= 0
+                            ? 'Place Order with Wallet'
+                            : 'Submit & Pay ${money(_checkoutPayAmount)}',
                 style: const TextStyle(
                   color: AppColors.navyDeep,
                   fontSize: 17,
@@ -1887,6 +2261,22 @@ class _OrderWizardState extends State<OrderWizard> {
             textAlign: TextAlign.center,
           ),
         ),
+        if (_orderSubmitted) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () {
+              _reset();
+              widget.onOrderSubmitted?.call();
+            },
+            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+            label: Text('Order $_submittedOrderNo created · View in Orders'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.gold,
+              side: const BorderSide(color: AppColors.gold),
+              minimumSize: const Size.fromHeight(48),
+            ),
+          ),
+        ],
       ],
 
       // ── Success + submitting state ─────────────────────────────────────
@@ -2074,9 +2464,8 @@ class _OrderWizardState extends State<OrderWizard> {
 
   // ── EMI fields ─────────────────────────────────────────────────────────────
   List<Widget> _buildEmiFields() {
-    final estimatedPrice = (quote!['estimatedPrice'] as num?)?.toDouble() ?? 0;
-    final total =
-        _paymentType == 'advance' ? estimatedPrice * 0.25 : estimatedPrice;
+    final estimatedPrice = _checkoutPayableTotal;
+    final total = _paymentType == 'advance' ? estimatedPrice * 0.25 : estimatedPrice;
     final plans = [3, 6, 9, 12];
     return [
       Wrap(
