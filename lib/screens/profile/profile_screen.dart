@@ -8,6 +8,7 @@ import '../../widgets/common.dart';
 import '../notifications/notifications_screen.dart';
 import '../support/help_support_screen.dart';
 import 'wallet_screen.dart';
+import '../../widgets/address_autocomplete_field.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.api, required this.onLogout});
@@ -168,6 +169,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _future = future;
       });
     }
+  }
+
+  void _openSavedAddressesModal(Map<String, dynamic> p) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.navyDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _SavedAddressesSheet(
+        api: widget.api,
+        onChanged: _refreshProfile,
+      ),
+    );
   }
 
   Future<void> _saveEdit() async {
@@ -598,6 +614,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const Divider(height: 0, color: AppColors.navyLight),
 
+                      // Saved Delivery Addresses
+                      _MenuTile(
+                        icon: Icons.location_on_outlined,
+                        iconColor: AppColors.gold,
+                        title: 'Saved Delivery Addresses',
+                        subtitle: 'Manage home, shop & work locations',
+                        onTap: () => _openSavedAddressesModal(p),
+                      ),
+                      const Divider(height: 0, color: AppColors.navyLight),
+
                       // Notifications
                       _MenuTile(
                         icon: Icons.notifications_outlined,
@@ -868,4 +894,398 @@ class _MenuTile extends StatelessWidget {
           ]),
         ),
       );
+}
+
+class _SavedAddressesSheet extends StatefulWidget {
+  const _SavedAddressesSheet({
+    required this.api,
+    required this.onChanged,
+  });
+
+  final ApiClient api;
+  final VoidCallback onChanged;
+
+  @override
+  State<_SavedAddressesSheet> createState() => _SavedAddressesSheetState();
+}
+
+class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
+  bool _loading = true;
+  List<Map<String, dynamic>> _addresses = [];
+  bool _addingNew = false;
+  bool _saving = false;
+
+  String _label = 'Home';
+  bool _isDefault = false;
+  StructuredAddress? _newAddress;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    setState(() => _loading = true);
+    try {
+      final list = await widget.api.getSavedAddresses();
+      if (mounted) {
+        setState(() {
+          _addresses = list;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _delete(dynamic id) async {
+    try {
+      await widget.api.deleteCustomerAddress(id);
+      await _fetch();
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete address: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveNew() async {
+    if (_newAddress == null ||
+        _newAddress!.fullDisplayAddress.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter an address.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final addr = _newAddress!;
+      final line = addr.addressLine.isNotEmpty
+          ? addr.addressLine
+          : addr.formattedAddress;
+
+      await widget.api.saveCustomerAddress({
+        'label': _label,
+        'addressLine': line,
+        'city': addr.city.isNotEmpty ? addr.city : null,
+        'state': addr.state.isNotEmpty ? addr.state : null,
+        'pincode': addr.pincode.isNotEmpty ? addr.pincode : null,
+        'latitude': addr.latitude,
+        'longitude': addr.longitude,
+        'isDefault': _isDefault,
+      });
+
+      setState(() {
+        _addingNew = false;
+        _newAddress = null;
+        _saving = false;
+      });
+      await _fetch();
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save address: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.location_on_outlined,
+                      color: AppColors.gold, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'Saved Delivery Addresses',
+                    style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: AppColors.white54),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(color: AppColors.gold),
+              ),
+            )
+          else ...[
+            if (_addresses.isEmpty && !_addingNew)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.location_off_outlined,
+                          size: 48,
+                          color: AppColors.white.withValues(alpha: .3)),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No saved addresses yet',
+                        style: TextStyle(color: AppColors.white70, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (_addresses.isNotEmpty)
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _addresses.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, i) {
+                    final a = _addresses[i];
+                    final label = a['label']?.toString() ?? 'Other';
+                    final line = a['addressLine']?.toString() ??
+                        a['address_line']?.toString() ??
+                        '';
+                    final city = a['city']?.toString() ?? '';
+                    final pincode = a['pincode']?.toString() ?? '';
+                    final isDef = a['isDefault'] == true;
+
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.navyCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: isDef
+                                ? AppColors.gold
+                                : AppColors.navyLight),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            label.toLowerCase() == 'home'
+                                ? Icons.home_outlined
+                                : label.toLowerCase() == 'shop'
+                                    ? Icons.storefront_outlined
+                                    : Icons.business_outlined,
+                            color: isDef ? AppColors.gold : AppColors.white70,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      label,
+                                      style: const TextStyle(
+                                          color: AppColors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14),
+                                    ),
+                                    if (isDef) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.gold
+                                              .withValues(alpha: .2),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Default',
+                                          style: TextStyle(
+                                              color: AppColors.gold,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  [line, city, pincode]
+                                      .where((s) => s.isNotEmpty)
+                                      .join(', '),
+                                  style: const TextStyle(
+                                      color: AppColors.white70, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: AppColors.danger, size: 20),
+                            onPressed: () => _delete(a['id']),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 12),
+            if (!_addingNew)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.add_location_alt_outlined,
+                      color: AppColors.gold),
+                  label: const Text('Add New Address',
+                      style: TextStyle(
+                          color: AppColors.gold, fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.gold),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => setState(() => _addingNew = true),
+                ),
+              )
+            else ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.navyCard,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppColors.gold.withValues(alpha: .4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Label:',
+                        style: TextStyle(
+                            color: AppColors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: ['Home', 'Shop', 'Work', 'Other'].map((lbl) {
+                        final sel = _label == lbl;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(lbl),
+                            selected: sel,
+                            onSelected: (_) => setState(() => _label = lbl),
+                            selectedColor: AppColors.gold,
+                            backgroundColor: AppColors.navyDark,
+                            labelStyle: TextStyle(
+                              color: sel
+                                  ? AppColors.navyDeep
+                                  : AppColors.white70,
+                              fontSize: 12,
+                              fontWeight:
+                                  sel ? FontWeight.w700 : FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    AddressAutocompleteField(
+                      api: widget.api,
+                      allowSave: false,
+                      onAddressSelected: (addr) => _newAddress = addr,
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      value: _isDefault,
+                      onChanged: (v) =>
+                          setState(() => _isDefault = v ?? false),
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: AppColors.gold,
+                      dense: true,
+                      title: const Text('Set as default delivery address',
+                          style: TextStyle(
+                              color: AppColors.white70, fontSize: 13)),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () =>
+                                setState(() => _addingNew = false),
+                            child: const Text('Cancel',
+                                style: TextStyle(color: AppColors.white54)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.gold,
+                              foregroundColor: AppColors.navyDeep,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: _saving ? null : _saveNew,
+                            child: _saving
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.navyDeep),
+                                  )
+                                : const Text('Save Address',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
 }

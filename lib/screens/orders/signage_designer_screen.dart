@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/app_theme.dart';
 import '../../services/api_client.dart';
 import '../../widgets/common.dart';
+import '../../widgets/address_autocomplete_field.dart';
 
 class SignageFontOption {
   const SignageFontOption({
@@ -40,6 +41,7 @@ class SignageDesignerScreen extends StatefulWidget {
 class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   final _textCtrl = TextEditingController(text: 'SIGNFIX STUDIOS');
   final _addressCtrl = TextEditingController();
+  StructuredAddress? _structuredAddress;
 
   // ── STRICT approved 5 fonts for Signage ───────────────────────────────────
   static final List<SignageFontOption> approvedFonts = [
@@ -249,7 +251,9 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
 
   Future<void> _submitSignageOrder() async {
     final text = _textCtrl.text.trim();
-    final address = _addressCtrl.text.trim();
+    final address = _structuredAddress?.fullDisplayAddress.isNotEmpty == true
+        ? _structuredAddress!.fullDisplayAddress
+        : _addressCtrl.text.trim();
 
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -288,6 +292,8 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
         'installation': true,
         'transportation': true,
         'address': address,
+        'deliveryAddress': _structuredAddress?.toMap(),
+        'saveAddress': _structuredAddress?.saveToProfile ?? false,
         'estimatedPrice': _calculatedPrice,
         'aiGeneratedImageUrl': _aiGeneratedImageUrl,
         'aiPrompt': _aiPrompt,
@@ -828,16 +834,15 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           const SizedBox(height: 20),
 
           // ── Delivery Address & Pricing Summary ──────────────────────────────
-          TextField(
-            controller: _addressCtrl,
-            style: const TextStyle(color: AppColors.white, fontSize: 13),
-            decoration: InputDecoration(
-              labelText: 'Delivery / Installation Address',
-              hintText: 'Enter street, shop number, city, pincode',
-              labelStyle: const TextStyle(fontSize: 12),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            ),
+          AddressAutocompleteField(
+            api: widget.api,
+            initialAddress: _addressCtrl.text,
+            onAddressSelected: (addr) {
+              setState(() {
+                _structuredAddress = addr;
+                _addressCtrl.text = addr.fullDisplayAddress;
+              });
+            },
           ),
           const SizedBox(height: 20),
 

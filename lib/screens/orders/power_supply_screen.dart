@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../services/api_client.dart';
 import '../../widgets/common.dart';
+import '../../widgets/address_autocomplete_field.dart';
 
 class PowerSupplyProduct {
   const PowerSupplyProduct({
@@ -206,6 +207,7 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
   bool _includeQuickConnectors = true;
   bool _includeMountingClips = true;
   final _addressCtrl = TextEditingController();
+  StructuredAddress? _structuredAddress;
   bool _submitting = false;
 
   // Wattage Calculator inputs
@@ -243,7 +245,9 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
   }
 
   Future<void> _proceedToCheckout() async {
-    final address = _addressCtrl.text.trim();
+    final address = _structuredAddress?.fullDisplayAddress.isNotEmpty == true
+        ? _structuredAddress!.fullDisplayAddress
+        : _addressCtrl.text.trim();
     if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -275,6 +279,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         'installation': false,
         'transportation': true,
         'address': address,
+        'deliveryAddress': _structuredAddress?.toMap(),
+        'saveAddress': _structuredAddress?.saveToProfile ?? false,
         'estimatedPrice': _subtotal,
         'idempotencyKey': '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32).toRadixString(16)}',
         'promotionBannerId': widget.promotionBannerId,
@@ -620,17 +626,16 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                   value: _includeMountingClips,
                   onChanged: (v) => setState(() => _includeMountingClips = v ?? false),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _addressCtrl,
-                  style: const TextStyle(color: AppColors.white, fontSize: 13),
-                  decoration: InputDecoration(
-                    labelText: 'Delivery / Installation Address',
-                    labelStyle: const TextStyle(fontSize: 12),
-                    hintText: 'Enter street, shop number, city, pincode',
-                    hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
+                const SizedBox(height: 12),
+                AddressAutocompleteField(
+                  api: widget.api,
+                  initialAddress: _addressCtrl.text,
+                  onAddressSelected: (addr) {
+                    setState(() {
+                      _structuredAddress = addr;
+                      _addressCtrl.text = addr.fullDisplayAddress;
+                    });
+                  },
                 ),
               ],
             ),

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
-import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../core/app_theme.dart';
 import '../../core/app_utils.dart';
 import '../../services/api_client.dart';
 import '../../widgets/common.dart';
+import '../../widgets/address_autocomplete_field.dart';
 import 'text_designer_screen.dart';
 
 class OrderWizard extends StatefulWidget {
@@ -34,13 +33,9 @@ class _OrderWizardState extends State<OrderWizard> {
   bool installation = true, transportation = true, loading = false;
   Map<String, dynamic>? quote;
   SignBoardTextDesign? _textDesign;
+  StructuredAddress? _structuredDeliveryAddress;
 
-  // Address autocomplete
-  List<Map<String, dynamic>> _suggestions = [];
-  bool _loadingSuggestions = false;
-  Timer? _debounce;
-  final _addressFocus = FocusNode();
-  bool _showSuggestions = false;
+
 
   // ── Step 4 Payment state ──────────────────────────────────────────────────
   late final Razorpay _razorpay;
@@ -203,66 +198,10 @@ class _OrderWizardState extends State<OrderWizard> {
     for (final c in [length, width, quantity, address]) {
       c.dispose();
     }
-    _debounce?.cancel();
-    _addressFocus.dispose();
     super.dispose();
   }
 
   void _err(Object e) => showAppError(context, e);
-
-  // ── Address Autocomplete (Nominatim / OpenStreetMap) ──────────────────────
-  void _onAddressChanged(String value) {
-    _debounce?.cancel();
-    if (value.trim().length < 3) {
-      if (mounted) {
-        setState(() {
-          _suggestions = [];
-          _showSuggestions = false;
-        });
-      }
-      return;
-    }
-    _debounce = Timer(
-        const Duration(milliseconds: 600), () => _fetchSuggestions(value));
-  }
-
-  Future<void> _fetchSuggestions(String query) async {
-    if (!mounted) return;
-    setState(() => _loadingSuggestions = true);
-    try {
-      final uri = Uri.parse(
-        'https://nominatim.openstreetmap.org/search'
-        '?q=${Uri.encodeComponent(query)}'
-        '&format=json&addressdetails=1&limit=5&countrycodes=in',
-      );
-      final res = await http.get(uri, headers: {
-        'User-Agent': 'SignFix/1.0 (signfix@app.com)'
-      }).timeout(const Duration(seconds: 8));
-      if (!mounted) return;
-      if (res.statusCode == 200) {
-        final list = jsonDecode(res.body) as List;
-        setState(() {
-          _suggestions =
-              list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-          _showSuggestions = _suggestions.isNotEmpty;
-        });
-      }
-    } catch (_) {
-      // silently ignore network errors — user can still type manually
-    } finally {
-      if (mounted) setState(() => _loadingSuggestions = false);
-    }
-  }
-
-  void _selectSuggestion(Map<String, dynamic> place) {
-    final display = place['display_name']?.toString() ?? '';
-    address.text = display;
-    setState(() {
-      _suggestions = [];
-      _showSuggestions = false;
-    });
-    _addressFocus.unfocus();
-  }
 
   // Map new sign types to existing backend product names
   // New types (Module/Channel/Bata) map to 'LED Sign Board' in DB
@@ -321,7 +260,11 @@ class _OrderWizardState extends State<OrderWizard> {
     try {
       final order = await widget.api.createOrder({
         ..._pricingInput(),
-        'address': address.text.trim(),
+        'address': _structuredDeliveryAddress?.fullDisplayAddress.isNotEmpty == true
+            ? _structuredDeliveryAddress!.fullDisplayAddress
+            : address.text.trim(),
+        'deliveryAddress': _structuredDeliveryAddress?.toMap(),
+        'saveAddress': _structuredDeliveryAddress?.saveToProfile ?? false,
         'estimatedPrice': quote!['estimatedPrice'],
         'idempotencyKey': _orderIdempotencyKey,
         'useWallet': _useWallet,
@@ -368,8 +311,6 @@ class _OrderWizardState extends State<OrderWizard> {
   }
 
   void _reset() {
-    _debounce?.cancel();
-    _addressFocus.unfocus();
     setState(() {
       step = 0;
       type = 'LED Sign Board';
@@ -383,9 +324,7 @@ class _OrderWizardState extends State<OrderWizard> {
       transportation = true;
       quote = null;
       _textDesign = null;
-      _suggestions = [];
-      _loadingSuggestions = false;
-      _showSuggestions = false;
+      _structuredDeliveryAddress = null;
       _payProcessing = false;
       _payLaunched = false;
       _payIntentId = null;
@@ -1320,131 +1259,16 @@ class _OrderWizardState extends State<OrderWizard> {
               prefixIcon: Icon(Icons.format_list_numbered_rounded)),
         ),
         const SizedBox(height: 12),
-        // ── Address field with autocomplete ──────────────────────────────────
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: address,
-              focusNode: _addressFocus,
-              maxLines: 2,
-              style: const TextStyle(color: AppColors.white),
-              onChanged: _onAddressChanged,
-              onTap: () {
-                if (address.text.trim().length >= 3) {
-                  setState(() => _showSuggestions = _suggestions.isNotEmpty);
-                }
-              },
-              decoration: InputDecoration(
-                labelText: 'Delivery / installation address',
-                prefixIcon: const Icon(Icons.location_on_outlined),
-                suffixIcon: _loadingSuggestions
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: AppColors.gold),
-                        ),
-                      )
-                    : address.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear,
-                                size: 18, color: AppColors.textMuted),
-                            onPressed: () {
-                              address.clear();
-                              setState(() {
-                                _suggestions = [];
-                                _showSuggestions = false;
-                              });
-                            },
-                          )
-                        : null,
-              ),
-            ),
-            // Suggestions dropdown
-            if (_showSuggestions && _suggestions.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.only(top: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.navyMid,
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: AppColors.gold.withValues(alpha: .3)),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: .3),
-                        blurRadius: 8)
-                  ],
-                ),
-                child: Column(
-                  children: _suggestions.asMap().entries.map((entry) {
-                    final i = entry.key;
-                    final place = entry.value;
-                    final name = place['display_name']?.toString() ?? '';
-                    final parts = name.split(', ');
-                    final title = parts.take(2).join(', ');
-                    final subtitle = parts.skip(2).take(3).join(', ');
-                    return Column(
-                      children: [
-                        InkWell(
-                          onTap: () => _selectSuggestion(place),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            child: Row(children: [
-                              const Icon(Icons.place_outlined,
-                                  color: AppColors.gold, size: 18),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(title,
-                                          style: const TextStyle(
-                                              color: AppColors.white,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis),
-                                      if (subtitle.isNotEmpty)
-                                        Text(subtitle,
-                                            style: const TextStyle(
-                                                color: AppColors.textMuted,
-                                                fontSize: 11),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis),
-                                    ]),
-                              ),
-                            ]),
-                          ),
-                        ),
-                        if (i < _suggestions.length - 1)
-                          const Divider(
-                              height: 0,
-                              color: AppColors.navyLight,
-                              indent: 42),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ),
-            if (_showSuggestions && _suggestions.isNotEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 4, left: 4),
-                child: Row(children: [
-                  Icon(Icons.info_outline,
-                      size: 11, color: AppColors.textMuted),
-                  SizedBox(width: 4),
-                  Text('Powered by OpenStreetMap',
-                      style:
-                          TextStyle(fontSize: 10, color: AppColors.textMuted)),
-                ]),
-              ),
-          ],
+        // ── Address field with autocomplete & saved addresses ───────────────
+        AddressAutocompleteField(
+          api: widget.api,
+          initialAddress: address.text,
+          onAddressSelected: (addr) {
+            setState(() {
+              _structuredDeliveryAddress = addr;
+              address.text = addr.fullDisplayAddress;
+            });
+          },
         ),
       ];
 

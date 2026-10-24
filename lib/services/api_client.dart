@@ -777,6 +777,62 @@ class ApiClient {
           as List<dynamic>? ??
       [];
 
+  // ── Address & Location Autocomplete ───────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getSavedAddresses() async {
+    final res = await _request('GET', '/customer/addresses');
+    if (res['data'] is List) {
+      return (res['data'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> saveCustomerAddress(Map<String, dynamic> data) =>
+      _request('POST', '/customer/addresses', body: data);
+
+  Future<Map<String, dynamic>> updateCustomerAddress(dynamic id, Map<String, dynamic> data) =>
+      _request('PATCH', '/customer/addresses/$id', body: data);
+
+  Future<void> deleteCustomerAddress(dynamic id) =>
+      _request('DELETE', '/customer/addresses/$id');
+
+  Future<List<Map<String, dynamic>>> autocompleteLocation(String query,
+      {String? sessionToken, String? countryCodes}) async {
+    final q = Uri.encodeComponent(query.trim());
+    var path = '/customer/location/autocomplete?input=$q';
+    if (sessionToken != null) {
+      path += '&sessionToken=${Uri.encodeComponent(sessionToken)}';
+    }
+    if (countryCodes != null) {
+      path += '&countryCodes=${Uri.encodeComponent(countryCodes)}';
+    }
+    final res = await _request('GET', path);
+    final data = res['data'];
+    if (data is List) {
+      return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getLocationDetails(String placeId,
+      {String? sessionToken,
+      String? provider,
+      double? lat,
+      double? lon}) async {
+    var path =
+        '/customer/location/details?placeId=${Uri.encodeComponent(placeId)}';
+    if (sessionToken != null) {
+      path += '&sessionToken=${Uri.encodeComponent(sessionToken)}';
+    }
+    if (provider != null) {
+      path += '&provider=${Uri.encodeComponent(provider)}';
+    }
+    if (lat != null && lon != null) path += '&latitude=$lat&longitude=$lon';
+    final res = await _request('GET', path);
+    return res['data'] is Map
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : res;
+  }
+
   // ΓöÇΓöÇ Account ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   Future<void> changePassword(
       String oldPassword, String newPassword) async {

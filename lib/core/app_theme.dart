@@ -8,6 +8,7 @@ abstract final class AppColors {
   // ── Dark Navy (background family) ────────────────────────────────────────
   static const navyDeep = Color(0xFF080D24); // deepest bg
   static const navyDark = Color(0xFF0D1B4B); // card / surface
+  static const navyCard = Color(0xFF0D1B4B); // card background alias
   static const navyMid = Color(0xFF132057); // elevated surfaces
   static const navyLight = Color(0xFF1E3175); // borders / dividers
 
@@ -18,6 +19,8 @@ abstract final class AppColors {
 
   // ── White / Text ─────────────────────────────────────────────────────────
   static const white = Color(0xFFFFFFFF);
+  static const white70 = Color(0xB3FFFFFF);
+  static const white54 = Color(0x8AFFFFFF);
   static const whiteSmoke = Color(0xFFF0F4FF);
   static const textLight = Color(0xFFB8C6E8); // secondary text on dark
   static const textMuted = Color(0xFF6B80B3); // muted text
