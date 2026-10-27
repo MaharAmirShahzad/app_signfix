@@ -8,30 +8,33 @@ class RegProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-    color: AppColors.navyDark,
-    child: Row(children: [
-      for (int i = 1; i <= 3; i++) ...[
-        Expanded(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            height: 4,
-            decoration: BoxDecoration(
-              color: i <= step ? AppColors.gold : AppColors.navyLight,
-              borderRadius: BorderRadius.circular(2),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        color: AppColors.navy,
+        child: Row(children: [
+          for (int i = 1; i <= 3; i++) ...[
+            Expanded(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: 4,
+                decoration: BoxDecoration(
+                  color: i <= step ? AppColors.gold : AppColors.midGray,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-          ),
-        ),
-        if (i < 3) const SizedBox(width: 6),
-      ],
-      const SizedBox(width: 12),
-      Text('$step/3',
-          style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w700, fontSize: 12)),
-    ]),
-  );
+            if (i < 3) const SizedBox(width: 6),
+          ],
+          const SizedBox(width: 12),
+          Text('$step/3',
+              style: const TextStyle(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12)),
+        ]),
+      );
 }
 
-/// Standard dark-themed text field
+/// Standard technician registration text field
 class RegField extends StatelessWidget {
   const RegField({
     super.key,
@@ -53,17 +56,17 @@ class RegField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextField(
-    controller: ctrl,
-    keyboardType: type,
-    textInputAction: action,
-    maxLines: maxLines,
-    style: const TextStyle(color: AppColors.white),
-    decoration: InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(icon),
-    ),
-  );
+        controller: ctrl,
+        keyboardType: type,
+        textInputAction: action,
+        maxLines: maxLines,
+        style: const TextStyle(color: AppColors.charcoal),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixIcon: Icon(icon),
+        ),
+      );
 }
 
 /// Error display box
@@ -72,17 +75,19 @@ class RegErrorBox extends StatelessWidget {
   final String message;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.danger.withValues(alpha: .1),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.danger.withValues(alpha: .4)),
-    ),
-    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Icon(Icons.error_outline, color: AppColors.danger, size: 16),
-      const SizedBox(width: 8),
-      Expanded(child: Text(message,
-          style: const TextStyle(color: AppColors.danger, fontSize: 13))),
-    ]),
-  );
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.danger.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.danger.withValues(alpha: .4)),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.error_outline, color: AppColors.danger, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text(message,
+                  style:
+                      const TextStyle(color: AppColors.danger, fontSize: 13))),
+        ]),
+      );
 }

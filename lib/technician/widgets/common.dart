@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../core/app_theme.dart';
 
 class BrandLogo extends StatelessWidget {
   const BrandLogo({super.key, this.size = 48});
@@ -30,7 +31,8 @@ class LoadingButton extends StatelessWidget {
       child: loading
           ? const SizedBox.square(
               dimension: 21,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppColors.navy))
           : child);
 }
 

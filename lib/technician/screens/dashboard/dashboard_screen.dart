@@ -79,13 +79,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         body: RefreshIndicator(
-          color: AppColors.info,
-          backgroundColor: AppColors.navyDark,
+          color: AppColors.gold,
+          backgroundColor: AppColors.white,
           onRefresh: _refresh,
           child: Container(
-            color: AppColors.navyDeep,
+            color: AppColors.softGray,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(18),
@@ -106,14 +106,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0A1A3A), Color(0xFF132057)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: AppColors.info.withValues(alpha: .3)),
+                        border: Border.all(color: AppColors.cardBorder),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppColors.shadow,
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Row(children: [
                         Expanded(
@@ -124,12 +126,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.w800,
-                                      color: AppColors.white)),
+                                      color: AppColors.navy)),
                               const SizedBox(height: 4),
                               const Text("Here's your field summary for today.",
                                   style: TextStyle(
-                                      color: AppColors.textLight,
-                                      fontSize: 13)),
+                                      color: AppColors.midGray, fontSize: 13)),
                             ])),
                         Column(children: [
                           const Icon(Icons.star_rounded,
@@ -139,10 +140,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 14,
-                                  color: AppColors.white)),
+                                  color: AppColors.navy)),
                           Text('$total jobs',
                               style: const TextStyle(
-                                  fontSize: 11, color: AppColors.textMuted)),
+                                  fontSize: 11, color: AppColors.midGray)),
                         ]),
                       ]),
                     );
@@ -200,7 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ? 'Session Expired'
                                     : 'Could Not Load Dashboard',
                                 style: const TextStyle(
-                                    color: AppColors.white,
+                                    color: AppColors.navy,
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800)),
                             const SizedBox(height: 8),
@@ -209,7 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ? 'Your session has expired. Please sign in again.'
                                     : 'Unable to load data. Please try again.',
                                 style: const TextStyle(
-                                    color: AppColors.textLight, fontSize: 13),
+                                    color: AppColors.midGray, fontSize: 13),
                                 textAlign: TextAlign.center),
                             const SizedBox(height: 24),
                             SizedBox(
@@ -247,7 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 12),
                       Row(children: [
                         _StatCard("${d['pending'] ?? 0}", 'Pending',
-                            Icons.schedule_outlined, AppColors.textLight),
+                            Icons.schedule_outlined, AppColors.midGray),
                         const SizedBox(width: 12),
                         _StatCard("${d['completed'] ?? 0}", 'Completed',
                             Icons.check_circle_outline, AppColors.success),
@@ -263,30 +264,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1A3A7A), Color(0xFF0F2055)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: AppColors.gold,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                          color: AppColors.info.withValues(alpha: .4)),
-                      boxShadow: [
+                      border: Border.all(color: AppColors.goldDark),
+                      boxShadow: const [
                         BoxShadow(
-                            color: AppColors.info.withValues(alpha: .15),
+                            color: AppColors.shadow,
                             blurRadius: 16,
-                            offset: const Offset(0, 4))
+                            offset: Offset(0, 4))
                       ],
                     ),
                     child: Row(children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.info.withValues(alpha: .15),
+                          color: AppColors.navy.withValues(alpha: .08),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.work_outline_rounded,
-                            color: AppColors.info, size: 26),
+                            color: AppColors.navy, size: 26),
                       ),
                       const SizedBox(width: 14),
                       const Expanded(
@@ -295,16 +291,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                             Text('View All Jobs',
                                 style: TextStyle(
-                                    color: AppColors.white,
+                                    color: AppColors.navy,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800)),
                             SizedBox(height: 3),
                             Text('See assigned, pending and completed jobs.',
                                 style: TextStyle(
-                                    color: AppColors.textLight, fontSize: 12)),
+                                    color: AppColors.charcoal, fontSize: 12)),
                           ])),
                       const Icon(Icons.arrow_forward_ios_rounded,
-                          color: AppColors.info, size: 16),
+                          color: AppColors.navy, size: 16),
                     ]),
                   ),
                 ),
@@ -315,7 +311,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.white)),
+                        color: AppColors.navy)),
                 const SizedBox(height: 14),
                 FutureBuilder<List<dynamic>>(
                   future: _jobsFuture,
@@ -352,7 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ? color
                                 : isCompleted
                                     ? color.withValues(alpha: .35)
-                                    : AppColors.textMuted.withValues(alpha: .4);
+                                    : AppColors.midGray.withValues(alpha: .4);
 
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,7 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       : isActive
                                           ? color.withValues(alpha: .25)
                                           : isPending
-                                              ? AppColors.navyLight
+                                              ? AppColors.cardBorder
                                                   .withValues(alpha: .3)
                                               : color.withValues(alpha: .15),
                                   shape: BoxShape.circle,
@@ -377,7 +373,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         ? color
                                         : isCompleted
                                             ? color.withValues(alpha: .3)
-                                            : AppColors.navyLight,
+                                            : AppColors.cardBorder,
                                     width: isActive ? 2 : 1,
                                   ),
                                   boxShadow: isActive
@@ -412,7 +408,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   height: 26,
                                   color: isCompleted
                                       ? color.withValues(alpha: .3)
-                                      : AppColors.navyLight,
+                                      : AppColors.cardBorder,
                                 ),
                             ]),
                             const SizedBox(width: 14),
@@ -471,8 +467,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: isActive
-                                              ? AppColors.textLight
-                                              : AppColors.textMuted.withValues(
+                                              ? AppColors.midGray
+                                              : AppColors.midGray.withValues(
                                                   alpha: isPending ? .4 : .7),
                                         ),
                                       ),
@@ -502,7 +498,7 @@ class _StatCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.navyDark,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: color.withValues(alpha: .3)),
           ),
@@ -527,7 +523,7 @@ class _StatCard extends StatelessWidget {
                           color: color)),
                   Text(label,
                       style: const TextStyle(
-                          fontSize: 10, color: AppColors.textMuted)), // ✅ fixed
+                          fontSize: 10, color: AppColors.midGray)),
                 ])),
           ]),
         ),

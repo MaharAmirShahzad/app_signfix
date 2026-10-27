@@ -41,10 +41,12 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
           title: const Text('My Wallet'),
-          backgroundColor: AppColors.navyDark,
+          backgroundColor: AppColors.appBar,
+          foregroundColor: AppColors.navy,
+          surfaceTintColor: Colors.transparent,
         ),
         body: FutureBuilder<Map<String, dynamic>>(
           future: _walletFuture,
@@ -67,7 +69,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       const SizedBox(height: 12),
                       const Text(
                         'Could not load your wallet.',
-                        style: TextStyle(color: AppColors.white, fontSize: 16),
+                        style: TextStyle(color: AppColors.navy, fontSize: 16),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -89,12 +91,14 @@ class _WalletScreenState extends State<WalletScreen> {
             }
 
             final wallet = snapshot.data ?? const <String, dynamic>{};
+            final repeatUser =
+                wallet['cashbackStatus'] == 'not_eligible_repeat_user';
             final transactions = wallet['transactions'] is List
                 ? wallet['transactions'] as List
                 : const [];
             return RefreshIndicator(
               color: AppColors.gold,
-              backgroundColor: AppColors.navyDark,
+              backgroundColor: AppColors.white,
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -103,14 +107,16 @@ class _WalletScreenState extends State<WalletScreen> {
                   Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.navyLight, AppColors.navyDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: AppColors.gold.withValues(alpha: .5)),
+                      border: Border.all(color: AppColors.cardBorder),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: AppColors.shadow,
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,17 +124,18 @@ class _WalletScreenState extends State<WalletScreen> {
                         const Row(
                           children: [
                             Icon(Icons.account_balance_wallet_outlined,
-                                color: AppColors.gold),
+                                color: AppColors.goldDark),
                             SizedBox(width: 8),
                             Text('Available Balance',
-                                style: TextStyle(color: AppColors.textLight)),
+                                style:
+                                    TextStyle(color: AppColors.textSecondary)),
                           ],
                         ),
                         const SizedBox(height: 12),
                         Text(
                           money(_amount(wallet['balance'])),
                           style: const TextStyle(
-                            color: AppColors.white,
+                            color: AppColors.navy,
                             fontSize: 34,
                             fontWeight: FontWeight.w900,
                           ),
@@ -137,16 +144,17 @@ class _WalletScreenState extends State<WalletScreen> {
                         Row(
                           children: [
                             const Icon(Icons.savings_outlined,
-                                color: AppColors.success, size: 19),
+                                color: AppColors.goldDark, size: 19),
                             const SizedBox(width: 8),
                             const Expanded(
                               child: Text('Total Cashback Earned',
-                                  style: TextStyle(color: AppColors.textLight)),
+                                  style: TextStyle(
+                                      color: AppColors.textSecondary)),
                             ),
                             Text(
                               money(_amount(wallet['totalCashbackEarned'])),
                               style: const TextStyle(
-                                color: AppColors.success,
+                                color: AppColors.navy,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -159,7 +167,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.gold.withValues(alpha: .08),
+                      color: AppColors.gold.withValues(alpha: .1),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                           color: AppColors.gold.withValues(alpha: .3)),
@@ -177,23 +185,25 @@ class _WalletScreenState extends State<WalletScreen> {
                               color: AppColors.gold, size: 20),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 '₹200 Promotional Cashback Offer',
                                 style: TextStyle(
-                                  color: AppColors.gold,
+                                  color: AppColors.navy,
                                   fontWeight: FontWeight.w800,
                                   fontSize: 13,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              const SizedBox(height: 4),
                               Text(
-                                'Order from our 3 eligible promotional banners to earn ₹200 cashback per qualifying order. Use your wallet balance at checkout for instant discounts!',
-                                style: TextStyle(
-                                  color: AppColors.textLight,
+                                repeatUser
+                                    ? 'Cashback is not available because a previous paid order has already qualified. Use your wallet balance at checkout for instant discounts.'
+                                    : 'A one-time ₹200 cashback is available on your first paid order placed from an eligible promotional banner. It is credited after payment is captured. Use your wallet balance at checkout for instant discounts.',
+                                style: const TextStyle(
+                                  color: AppColors.textBody,
                                   fontSize: 12,
                                   height: 1.4,
                                 ),
@@ -208,7 +218,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   const Text(
                     'Wallet Transaction History',
                     style: TextStyle(
-                      color: AppColors.white,
+                      color: AppColors.navy,
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
@@ -219,29 +229,29 @@ class _WalletScreenState extends State<WalletScreen> {
                       padding: const EdgeInsets.symmetric(
                           vertical: 36, horizontal: 20),
                       decoration: BoxDecoration(
-                        color: AppColors.navyDark,
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.navyLight),
+                        border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: const Column(
                         children: [
                           Icon(Icons.receipt_long_outlined,
-                              color: AppColors.textMuted, size: 40),
+                              color: AppColors.goldDark, size: 40),
                           SizedBox(height: 12),
                           Text(
                             'No transactions yet.',
                             style: TextStyle(
-                              color: AppColors.white,
+                              color: AppColors.navy,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           SizedBox(height: 6),
                           Text(
-                            'Place an order using any of our 3 promotional banners to earn ₹200 cashback directly in your wallet!',
+                            'Your first paid order from an eligible promotional banner may qualify for one-time ₹200 cashback, credited after payment is captured.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppColors.textMuted,
+                              color: AppColors.textSecondary,
                               fontSize: 12,
                               height: 1.4,
                             ),
@@ -268,8 +278,9 @@ class _WalletScreenState extends State<WalletScreen> {
             _amount(transaction['balanceAfter']) >=
                 _amount(transaction['previousBalance']));
     final amount = _amount(transaction['amount']);
-    final color = isCredit ? AppColors.success : AppColors.warning;
-    final status = (transaction['status']?.toString() ?? 'successful').toLowerCase();
+    final color = isCredit ? AppColors.goldDark : AppColors.navy;
+    final status =
+        (transaction['status']?.toString() ?? 'successful').toLowerCase();
     final statusColor = status == 'successful'
         ? AppColors.success
         : status == 'reversed'
@@ -293,13 +304,20 @@ class _WalletScreenState extends State<WalletScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.navyDark,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isCredit
-              ? AppColors.success.withValues(alpha: .25)
-              : AppColors.navyLight,
+              ? AppColors.gold.withValues(alpha: .35)
+              : AppColors.cardBorder,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,7 +344,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: AppColors.white,
+                        color: AppColors.navy,
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
@@ -335,7 +353,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     Text(
                       _date(transaction['createdAt']),
                       style: const TextStyle(
-                        color: AppColors.textMuted,
+                        color: AppColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
@@ -356,8 +374,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: .12),
                       borderRadius: BorderRadius.circular(8),
@@ -378,7 +396,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ],
           ),
-          const Divider(height: 22, color: AppColors.navyLight),
+          const Divider(height: 22, color: AppColors.cardBorder),
           Wrap(
             spacing: 14,
             runSpacing: 7,
@@ -409,7 +427,7 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget _detail(String label, String value) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.navyDeep.withValues(alpha: .6),
+          color: AppColors.softGray,
           borderRadius: BorderRadius.circular(6),
         ),
         child: RichText(
@@ -418,7 +436,7 @@ class _WalletScreenState extends State<WalletScreen> {
               TextSpan(
                 text: '$label: ',
                 style: const TextStyle(
-                  color: AppColors.textMuted,
+                  color: AppColors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
@@ -426,7 +444,7 @@ class _WalletScreenState extends State<WalletScreen> {
               TextSpan(
                 text: value,
                 style: const TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.navy,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),

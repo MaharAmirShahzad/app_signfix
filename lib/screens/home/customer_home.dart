@@ -129,9 +129,12 @@ class _CustomerHomeState extends State<CustomerHome> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
-          backgroundColor: AppColors.navyDark,
+          backgroundColor: AppColors.appBar,
+          foregroundColor: AppColors.navy,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
           title: Row(children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
@@ -144,13 +147,13 @@ class _CustomerHomeState extends State<CustomerHome> {
                 TextSpan(
                     text: 'Sign',
                     style: TextStyle(
-                        color: AppColors.white,
+                        color: AppColors.navy,
                         fontSize: 18,
                         fontWeight: FontWeight.w900)),
                 TextSpan(
                     text: 'Fix',
                     style: TextStyle(
-                        color: AppColors.gold,
+                        color: AppColors.goldDark,
                         fontSize: 18,
                         fontWeight: FontWeight.w900)),
               ]),
@@ -160,7 +163,7 @@ class _CustomerHomeState extends State<CustomerHome> {
             _NotificationBell(api: widget.api),
             IconButton(
               icon: const Icon(Icons.account_circle_outlined,
-                  color: AppColors.gold),
+                  color: AppColors.goldDark),
               onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -178,7 +181,7 @@ class _CustomerHomeState extends State<CustomerHome> {
             child: Container(
               height: 70,
               decoration: BoxDecoration(
-                color: AppColors.navyDark,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(30),
               ),
               child: Row(
@@ -258,7 +261,8 @@ class _NotificationBellState extends State<_NotificationBell> {
   Widget build(BuildContext context) =>
       Stack(alignment: Alignment.center, children: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: AppColors.gold),
+          icon: const Icon(Icons.notifications_outlined,
+              color: AppColors.goldDark),
           onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -282,7 +286,7 @@ class _NotificationBellState extends State<_NotificationBell> {
               child: Center(
                   child: Text('$_unread',
                       style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.white,
                           fontSize: 9,
                           fontWeight: FontWeight.w800))),
             ),
@@ -409,7 +413,7 @@ class _DashboardState extends State<_Dashboard> {
           const SizedBox(height: 20),
           Text(isAuthError ? 'Session Expired' : 'Could Not Load',
               style: const TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.navy,
                   fontSize: 18,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
@@ -439,7 +443,7 @@ class _DashboardState extends State<_Dashboard> {
   @override
   Widget build(BuildContext context) => RefreshIndicator(
         color: AppColors.gold,
-        backgroundColor: AppColors.navyDark,
+        backgroundColor: AppColors.white,
         onRefresh: _refresh,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -483,7 +487,7 @@ class _DashboardState extends State<_Dashboard> {
                                     style: const TextStyle(
                                         fontSize: 22,
                                         fontWeight: FontWeight.w800,
-                                        color: AppColors.white)),
+                                        color: AppColors.navy)),
                               ]),
                               const SizedBox(height: 6),
                               // Animated rotating sub-text
@@ -582,7 +586,7 @@ class _DashboardState extends State<_Dashboard> {
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.white)),
+                            color: AppColors.navy)),
                     const SizedBox(height: 12),
                     FutureBuilder<List<dynamic>>(
                       future: _ordersFuture,
@@ -596,9 +600,9 @@ class _DashboardState extends State<_Dashboard> {
                           return Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: AppColors.navyDark,
+                              color: AppColors.white,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppColors.navyLight),
+                              border: Border.all(color: AppColors.cardBorder),
                             ),
                             child: const Center(
                                 child: Text(
@@ -627,10 +631,10 @@ class _DashboardState extends State<_Dashboard> {
                                 margin: const EdgeInsets.only(bottom: 8),
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: AppColors.navyDark,
+                                  color: AppColors.white,
                                   borderRadius: BorderRadius.circular(14),
                                   border:
-                                      Border.all(color: AppColors.navyLight),
+                                      Border.all(color: AppColors.cardBorder),
                                 ),
                                 child: Row(children: [
                                   Container(
@@ -652,7 +656,7 @@ class _DashboardState extends State<_Dashboard> {
                                         Text(orderId,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w800,
-                                                color: AppColors.white,
+                                                color: AppColors.navy,
                                                 fontSize: 13)),
                                         Text(o['product']?.toString() ?? '',
                                             style: const TextStyle(
@@ -677,7 +681,7 @@ class _DashboardState extends State<_Dashboard> {
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.white)),
+                            color: AppColors.navy)),
                     const SizedBox(height: 12),
                     ...[
                       (
@@ -735,22 +739,47 @@ class _PromoBannerSlider extends StatelessWidget {
   final ValueChanged<String> onBannerTap;
 
   // ── Per-banner badge config ─────────────────────────────────────────────────
-  static Map<String, ({IconData icon, String label, Color color})> _badgeConfig(String id) {
+  static Map<String, ({IconData icon, String label, Color color})> _badgeConfig(
+      String id) {
     switch (id) {
       case 'home_banner_2':
         return {
-          'top': (icon: Icons.palette_outlined, label: 'Neon & Signage Design', color: const Color(0xFF8B5CF6)),
-          'cta': (icon: Icons.auto_awesome_outlined, label: 'Design Studio', color: const Color(0xFF8B5CF6)),
+          'top': (
+            icon: Icons.palette_outlined,
+            label: 'Neon & Signage Design',
+            color: AppColors.navy
+          ),
+          'cta': (
+            icon: Icons.auto_awesome_outlined,
+            label: 'Design Studio',
+            color: AppColors.navy
+          ),
         };
       case 'home_banner_3':
         return {
-          'top': (icon: Icons.bolt_outlined, label: 'Power Supply Catalog', color: const Color(0xFF06B6D4)),
-          'cta': (icon: Icons.electrical_services_outlined, label: 'Browse Drivers', color: const Color(0xFF06B6D4)),
+          'top': (
+            icon: Icons.bolt_outlined,
+            label: 'Power Supply Catalog',
+            color: AppColors.navy
+          ),
+          'cta': (
+            icon: Icons.electrical_services_outlined,
+            label: 'Browse Drivers',
+            color: AppColors.navy
+          ),
         };
       default: // home_banner_1
         return {
-          'top': (icon: Icons.savings_outlined, label: '₹200 Cashback Offer', color: AppColors.success),
-          'cta': (icon: Icons.shopping_cart_outlined, label: 'Shop Now', color: AppColors.gold),
+          'top': (
+            icon: Icons.savings_outlined,
+            label: '₹200 Cashback Offer',
+            color: AppColors.success
+          ),
+          'cta': (
+            icon: Icons.shopping_cart_outlined,
+            label: 'Shop Now',
+            color: AppColors.gold
+          ),
         };
     }
   }
@@ -806,7 +835,7 @@ class _PromoBannerSlider extends StatelessWidget {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: .3),
+                                color: AppColors.navy.withValues(alpha: .3),
                                 blurRadius: 8,
                               ),
                             ],
@@ -880,8 +909,7 @@ class _PromoBannerSlider extends StatelessWidget {
                 width: i == currentPage ? 20 : 6,
                 height: 6,
                 decoration: BoxDecoration(
-                  color:
-                      i == currentPage ? AppColors.gold : AppColors.navyLight,
+                  color: i == currentPage ? AppColors.gold : AppColors.midGray,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -913,7 +941,7 @@ class _StatTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: onTap != null
                   ? color.withValues(alpha: .08)
-                  : AppColors.navyDark,
+                  : AppColors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: color.withValues(alpha: .35)),
               boxShadow: onTap != null
@@ -963,7 +991,7 @@ class _ActionCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [accentColor.withValues(alpha: .15), AppColors.navyDark],
+              colors: [accentColor.withValues(alpha: .15), AppColors.white],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -988,7 +1016,7 @@ class _ActionCard extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.white)),
+                          color: AppColors.navy)),
                   const SizedBox(height: 4),
                   Text(subtitle,
                       style: const TextStyle(
@@ -1083,7 +1111,7 @@ class _HowItWorksRow extends StatelessWidget {
                     Text(title,
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
-                            color: AppColors.white,
+                            color: AppColors.navy,
                             fontSize: 13)),
                     Text(subtitle,
                         style: const TextStyle(

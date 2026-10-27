@@ -141,7 +141,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           'contact': widget.customerPhone,
         },
         'theme': {
-          'color': '#F5A623',
+          'color': '#F5A800',
         },
       };
 
@@ -191,14 +191,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       _canRetry = false;
     });
 
-    if (paymentIntentId != null && providerOrderId != null && signature != null) {
+    if (paymentIntentId != null &&
+        providerOrderId != null &&
+        signature != null) {
       try {
         final verified = await widget.api.verifyPayment(paymentIntentId, {
           'razorpayPaymentId': paymentId,
           'razorpayOrderId': providerOrderId,
           'razorpaySignature': signature,
         });
-        debugPrint('Quotation payment verification result: status=${verified['status']}');
+        debugPrint(
+            'Quotation payment verification result: status=${verified['status']}');
         final status = (verified['status'] ?? '').toString().toLowerCase();
         if (status == 'captured' || status == 'authorized') {
           if (!mounted) return;
@@ -213,16 +216,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
         } else if (status == 'failed') {
           throw Exception('Payment was rejected or failed at provider.');
         } else {
-          _showPending('Payment is pending gateway confirmation. Current status: $status');
+          _showPending(
+              'Payment is pending gateway confirmation. Current status: $status');
           return;
         }
       } catch (e) {
         debugPrint('Verification endpoint error: $e');
-        _showPending('Payment was received by gateway but could not be verified by backend: $e. Please do not pay again.');
+        _showPending(
+            'Payment was received by gateway but could not be verified by backend: $e. Please do not pay again.');
         return;
       }
     } else {
-      _showPending('Payment session missing signature or intent. Reference: $paymentId');
+      _showPending(
+          'Payment session missing signature or intent. Reference: $paymentId');
       return;
     }
   }
@@ -421,7 +427,7 @@ class _PaymentSummaryState extends State<_PaymentSummary> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF1A2E7A), Color(0xFF0F1E55)],
+                colors: [AppColors.navy, AppColors.navyDeep],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),

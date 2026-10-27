@@ -85,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final picker = ImagePicker();
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
@@ -95,12 +95,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: AppColors.navyLight,
+                  color: AppColors.cardBorder,
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
           const Text('Update Profile Photo',
               style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.navy,
                   fontWeight: FontWeight.w800,
                   fontSize: 16)),
           const SizedBox(height: 16),
@@ -114,20 +114,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppColors.gold)),
             title: const Text('Take Photo',
                 style: TextStyle(
-                    color: AppColors.white, fontWeight: FontWeight.w600)),
+                    color: AppColors.navy, fontWeight: FontWeight.w600)),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           ListTile(
             leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                    color: AppColors.info.withValues(alpha: .12),
+                    color: AppColors.gold.withValues(alpha: .12),
                     borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.photo_library_outlined,
-                    color: AppColors.info)),
+                    color: AppColors.gold)),
             title: const Text('Choose from Gallery',
                 style: TextStyle(
-                    color: AppColors.white, fontWeight: FontWeight.w600)),
+                    color: AppColors.navy, fontWeight: FontWeight.w600)),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
           if (p['profilePhotoPath'] != null &&
@@ -175,7 +175,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -211,10 +211,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.navyDark,
-        title: const Text('Sign out', style: TextStyle(color: AppColors.white)),
+        backgroundColor: AppColors.white,
+        title: const Text('Sign out', style: TextStyle(color: AppColors.navy)),
         content: const Text('Are you sure you want to sign out?',
-            style: TextStyle(color: AppColors.textLight)),
+            style: TextStyle(color: AppColors.charcoal)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -234,15 +234,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
-          backgroundColor: AppColors.navyDark,
+          backgroundColor: AppColors.appBar,
+          foregroundColor: AppColors.navy,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
           title: const Text('My Account',
               style: TextStyle(
-                  color: AppColors.white, fontWeight: FontWeight.w800)),
+                  color: AppColors.navy, fontWeight: FontWeight.w800)),
           leading: IconButton(
-            icon:
-                const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold),
+            icon: const Icon(Icons.arrow_back_ios_rounded,
+                color: AppColors.goldDark),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -292,7 +295,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? 'Session Expired'
                           : 'Could Not Load Profile',
                       style: const TextStyle(
-                        color: AppColors.white,
+                        color: AppColors.navy,
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
@@ -303,7 +306,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? 'Your session has expired. Please sign in again to continue.'
                           : 'Unable to load your profile. Please try again.',
                       style: const TextStyle(
-                          color: AppColors.textLight, fontSize: 13),
+                          color: AppColors.midGray, fontSize: 13),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -339,7 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final p = snap.data!;
             return RefreshIndicator(
               color: AppColors.gold,
-              backgroundColor: AppColors.navyDark,
+              backgroundColor: AppColors.white,
               onRefresh: _refreshProfile,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -397,7 +400,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.camera_alt_rounded,
-                                  size: 14, color: AppColors.navyDeep),
+                                  size: 14, color: AppColors.navy),
                             ),
                           ),
                         ],
@@ -408,15 +411,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
-                            color: AppColors.white)),
+                            color: AppColors.navy)),
                     const SizedBox(height: 4),
                     Text(p['email']?.toString() ?? '',
                         style: const TextStyle(
-                            color: AppColors.textLight, fontSize: 13)),
+                            color: AppColors.midGray, fontSize: 13)),
                     const SizedBox(height: 4),
                     Text('Member since ${p['memberSince'] ?? ''}',
                         style: const TextStyle(
-                            fontSize: 11, color: AppColors.textMuted)),
+                            fontSize: 11, color: AppColors.charcoal)),
                   ])),
                   const SizedBox(height: 20),
 
@@ -450,9 +453,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppColors.navyDark,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.navyLight),
+                      border: Border.all(color: AppColors.cardBorder),
                     ),
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,7 +465,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w800,
-                                    color: AppColors.white)),
+                                    color: AppColors.navy)),
                             const Spacer(),
                             if (!_editing)
                               GestureDetector(
@@ -475,18 +478,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         AppColors.gold.withValues(alpha: .12),
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                        color: AppColors.gold
+                                        color: AppColors.goldDark
                                             .withValues(alpha: .3)),
                                   ),
                                   child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(Icons.edit_outlined,
-                                            size: 14, color: AppColors.gold),
+                                            size: 14,
+                                            color: AppColors.goldDark),
                                         SizedBox(width: 4),
                                         Text('Edit',
                                             style: TextStyle(
-                                                color: AppColors.gold,
+                                                color: AppColors.goldDark,
                                                 fontWeight: FontWeight.w700,
                                                 fontSize: 12)),
                                       ]),
@@ -497,7 +501,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (_editing) ...[
                             TextField(
                               controller: _nameCtrl,
-                              style: const TextStyle(color: AppColors.white),
+                              style: const TextStyle(color: AppColors.charcoal),
                               decoration: const InputDecoration(
                                 labelText: 'Full name',
                                 prefixIcon: Icon(Icons.person_outline),
@@ -507,7 +511,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             TextField(
                               controller: _phoneCtrl,
                               keyboardType: TextInputType.phone,
-                              style: const TextStyle(color: AppColors.white),
+                              style: const TextStyle(color: AppColors.charcoal),
                               decoration: const InputDecoration(
                                 labelText: 'Phone',
                                 prefixIcon: Icon(Icons.phone_outlined),
@@ -517,7 +521,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             TextField(
                               controller: _addressCtrl,
                               maxLines: 2,
-                              style: const TextStyle(color: AppColors.white),
+                              style: const TextStyle(color: AppColors.charcoal),
                               decoration: const InputDecoration(
                                 labelText: 'Address',
                                 hintText: 'Enter your full address',
@@ -572,9 +576,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // ── Menu options ──────────────────────────────────────────────
                   Container(
                     decoration: BoxDecoration(
-                      color: AppColors.navyDark,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.navyLight),
+                      border: Border.all(color: AppColors.cardBorder),
                     ),
                     child: Column(children: [
                       _MenuTile(
@@ -612,7 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _refreshProfile();
                         },
                       ),
-                      const Divider(height: 0, color: AppColors.navyLight),
+                      const Divider(height: 0, color: AppColors.cardBorder),
 
                       // Saved Delivery Addresses
                       _MenuTile(
@@ -622,7 +626,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: 'Manage home, shop & work locations',
                         onTap: () => _openSavedAddressesModal(p),
                       ),
-                      const Divider(height: 0, color: AppColors.navyLight),
+                      const Divider(height: 0, color: AppColors.cardBorder),
 
                       // Notifications
                       _MenuTile(
@@ -636,12 +640,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   NotificationsScreen(api: widget.api),
                             )),
                       ),
-                      const Divider(height: 0, color: AppColors.navyLight),
+                      const Divider(height: 0, color: AppColors.cardBorder),
 
                       // Help & Support
                       _MenuTile(
                         icon: Icons.help_outline_rounded,
-                        iconColor: AppColors.info,
+                        iconColor: AppColors.gold,
                         title: 'Help & Support',
                         onTap: () => Navigator.push(
                             context,
@@ -649,7 +653,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               builder: (_) => const HelpSupportScreen(),
                             )),
                       ),
-                      const Divider(height: 0, color: AppColors.navyLight),
+                      const Divider(height: 0, color: AppColors.cardBorder),
 
                       // About SignFix
                       _MenuTile(
@@ -659,7 +663,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onTap: () => showDialog(
                           context: context,
                           builder: (_) => AlertDialog(
-                            backgroundColor: AppColors.navyDark,
+                            backgroundColor: AppColors.white,
                             title: Row(children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
@@ -672,7 +676,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 TextSpan(
                                     text: 'Sign',
                                     style: TextStyle(
-                                        color: AppColors.white,
+                                        color: AppColors.navy,
                                         fontSize: 18,
                                         fontWeight: FontWeight.w900)),
                                 TextSpan(
@@ -686,7 +690,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             content: const Text(
                               'Version 1.0.0\n\nSign Board Sales, Service & Maintenance Management Platform.\n\nREPAIR  •  MANUFACTURE  •  INSTALL\n\nDeveloped by DL SSR INFOTECH',
                               style: TextStyle(
-                                  color: AppColors.textLight, height: 1.5),
+                                  color: AppColors.charcoal, height: 1.5),
                             ),
                             actions: [
                               FilledButton(
@@ -754,7 +758,7 @@ class _StatCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
               decoration: BoxDecoration(
-                color: AppColors.navyDark,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: color.withValues(alpha: .3)),
               ),
@@ -787,7 +791,7 @@ class _StatCard extends StatelessWidget {
                         label,
                         style: const TextStyle(
                           fontSize: 11,
-                          color: AppColors.textMuted,
+                          color: AppColors.charcoal,
                         ),
                       ),
                     ],
@@ -816,13 +820,13 @@ class _InfoRow extends StatelessWidget {
                   children: [
                 Text(label,
                     style: const TextStyle(
-                        fontSize: 11, color: AppColors.textMuted)),
+                        fontSize: 11, color: AppColors.charcoal)),
                 const SizedBox(height: 2),
                 Text(value,
                     style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.white)),
+                        color: AppColors.charcoal)),
               ])),
         ],
       );
@@ -867,7 +871,7 @@ class _MenuTile extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: AppColors.white,
+                      color: AppColors.navy,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -877,7 +881,7 @@ class _MenuTile extends StatelessWidget {
                     Text(
                       subtitle!,
                       style: const TextStyle(
-                        color: AppColors.textMuted,
+                        color: AppColors.charcoal,
                         fontSize: 12,
                       ),
                     ),
@@ -958,8 +962,7 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
   }
 
   Future<void> _saveNew() async {
-    if (_newAddress == null ||
-        _newAddress!.fullDisplayAddress.trim().isEmpty) {
+    if (_newAddress == null || _newAddress!.fullDisplayAddress.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter an address.'),
@@ -1031,14 +1034,14 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                   Text(
                     'Saved Delivery Addresses',
                     style: TextStyle(
-                        color: AppColors.white,
+                        color: AppColors.navy,
                         fontSize: 18,
                         fontWeight: FontWeight.w800),
                   ),
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: AppColors.white54),
+                icon: const Icon(Icons.close, color: AppColors.midGray),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -1053,18 +1056,18 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
             )
           else ...[
             if (_addresses.isEmpty && !_addingNew)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Column(
                     children: [
                       Icon(Icons.location_off_outlined,
-                          size: 48,
-                          color: AppColors.white.withValues(alpha: .3)),
-                      const SizedBox(height: 12),
-                      const Text(
+                          size: 48, color: AppColors.midGray),
+                      SizedBox(height: 12),
+                      Text(
                         'No saved addresses yet',
-                        style: TextStyle(color: AppColors.white70, fontSize: 14),
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 14),
                       ),
                     ],
                   ),
@@ -1092,9 +1095,8 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                         color: AppColors.navyCard,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: isDef
-                                ? AppColors.gold
-                                : AppColors.navyLight),
+                            color:
+                                isDef ? AppColors.gold : AppColors.cardBorder),
                       ),
                       child: Row(
                         children: [
@@ -1104,7 +1106,7 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                                 : label.toLowerCase() == 'shop'
                                     ? Icons.storefront_outlined
                                     : Icons.business_outlined,
-                            color: isDef ? AppColors.gold : AppColors.white70,
+                            color: isDef ? AppColors.gold : AppColors.navy,
                             size: 22,
                           ),
                           const SizedBox(width: 12),
@@ -1117,7 +1119,7 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                                     Text(
                                       label,
                                       style: const TextStyle(
-                                          color: AppColors.white,
+                                          color: AppColors.textBody,
                                           fontWeight: FontWeight.w700,
                                           fontSize: 14),
                                     ),
@@ -1135,7 +1137,7 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                                         child: const Text(
                                           'Default',
                                           style: TextStyle(
-                                              color: AppColors.gold,
+                                              color: AppColors.goldDark,
                                               fontSize: 10,
                                               fontWeight: FontWeight.w700),
                                         ),
@@ -1149,7 +1151,7 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                                       .where((s) => s.isNotEmpty)
                                       .join(', '),
                                   style: const TextStyle(
-                                      color: AppColors.white70, fontSize: 12),
+                                      color: AppColors.charcoal, fontSize: 12),
                                 ),
                               ],
                             ),
@@ -1174,7 +1176,7 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                       color: AppColors.gold),
                   label: const Text('Add New Address',
                       style: TextStyle(
-                          color: AppColors.gold, fontWeight: FontWeight.w700)),
+                          color: AppColors.navy, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.gold),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1190,15 +1192,15 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                 decoration: BoxDecoration(
                   color: AppColors.navyCard,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: AppColors.gold.withValues(alpha: .4)),
+                  border:
+                      Border.all(color: AppColors.gold.withValues(alpha: .4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('Label:',
                         style: TextStyle(
-                            color: AppColors.white70,
+                            color: AppColors.textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
@@ -1212,11 +1214,9 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                             selected: sel,
                             onSelected: (_) => setState(() => _label = lbl),
                             selectedColor: AppColors.gold,
-                            backgroundColor: AppColors.navyDark,
+                            backgroundColor: AppColors.cardBg,
                             labelStyle: TextStyle(
-                              color: sel
-                                  ? AppColors.navyDeep
-                                  : AppColors.white70,
+                              color: sel ? AppColors.navy : AppColors.textBody,
                               fontSize: 12,
                               fontWeight:
                                   sel ? FontWeight.w700 : FontWeight.w500,
@@ -1234,24 +1234,22 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                     const SizedBox(height: 8),
                     CheckboxListTile(
                       value: _isDefault,
-                      onChanged: (v) =>
-                          setState(() => _isDefault = v ?? false),
+                      onChanged: (v) => setState(() => _isDefault = v ?? false),
                       contentPadding: EdgeInsets.zero,
                       activeColor: AppColors.gold,
                       dense: true,
                       title: const Text('Set as default delivery address',
                           style: TextStyle(
-                              color: AppColors.white70, fontSize: 13)),
+                              color: AppColors.textBody, fontSize: 13)),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: TextButton(
-                            onPressed: () =>
-                                setState(() => _addingNew = false),
+                            onPressed: () => setState(() => _addingNew = false),
                             child: const Text('Cancel',
-                                style: TextStyle(color: AppColors.white54)),
+                                style: TextStyle(color: AppColors.navy)),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1273,8 +1271,8 @@ class _SavedAddressesSheetState extends State<_SavedAddressesSheet> {
                                         color: AppColors.navyDeep),
                                   )
                                 : const Text('Save Address',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w700)),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.w700)),
                           ),
                         ),
                       ],

@@ -13,6 +13,7 @@ import 'screens/portal/portal_selection_screen.dart';
 // Customer screens
 import 'screens/auth/login_screen.dart' as cust_auth;
 import 'screens/home/customer_home.dart';
+import 'screens/activity/quotation_detail_screen.dart';
 
 // Technician screens
 import 'technician/screens/auth/login_screen.dart' as tech_auth;
@@ -46,10 +47,11 @@ class SignFixApp extends StatefulWidget {
 }
 
 class _SignFixAppState extends State<SignFixApp> {
-  final _customerApi   = cust.ApiClient();
+  final _customerApi = cust.ApiClient();
   final _technicianApi = tech.TechnicianApi();
   bool _ready = false;
   PortalType? _selectedPortal;
+  RemoteMessage? _pendingPushMessage;
 
   @override
   void initState() {
@@ -65,6 +67,13 @@ class _SignFixAppState extends State<SignFixApp> {
     // Register FCM token if logged in
     await _setupFcm();
     if (mounted) setState(() => _ready = true);
+    final pendingMessage = _pendingPushMessage;
+    _pendingPushMessage = null;
+    if (pendingMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openQuotationFromPush(pendingMessage);
+      });
+    }
   }
 
   Future<void> _setupFcm() async {
@@ -82,6 +91,8 @@ class _SignFixAppState extends State<SignFixApp> {
           await _technicianApi.registerDeviceToken(fcmToken);
         }
       }
+      _pendingPushMessage = await messaging.getInitialMessage();
+      FirebaseMessaging.onMessageOpenedApp.listen(_openQuotationFromPush);
       // Listen for token refresh
       messaging.onTokenRefresh.listen((newToken) async {
         if (_customerApi.token != null) {
@@ -95,6 +106,7 @@ class _SignFixAppState extends State<SignFixApp> {
       FirebaseMessaging.onMessage.listen((message) {
         final notification = message.notification;
         if (notification != null && _navigatorKey.currentContext != null) {
+          final quotationNo = _quotationNoFromPush(message);
           ScaffoldMessenger.of(_navigatorKey.currentContext!).showSnackBar(
             SnackBar(
               content: Column(
@@ -103,15 +115,22 @@ class _SignFixAppState extends State<SignFixApp> {
                 children: [
                   Text(notification.title ?? 'SignFix',
                       style: const TextStyle(
-                          fontWeight: FontWeight.w800, color: Colors.white)),
+                          fontWeight: FontWeight.w800, color: AppColors.white)),
                   if (notification.body != null)
                     Text(notification.body!,
-                        style: const TextStyle(color: Colors.white70)),
+                        style: const TextStyle(color: AppColors.white70)),
                 ],
               ),
               backgroundColor: AppColors.navyDark,
               duration: const Duration(seconds: 4),
               behavior: SnackBarBehavior.floating,
+              action: quotationNo == null
+                  ? null
+                  : SnackBarAction(
+                      label: 'View',
+                      textColor: AppColors.gold,
+                      onPressed: () => _openQuotationFromPush(message),
+                    ),
             ),
           );
         }
@@ -121,8 +140,48 @@ class _SignFixAppState extends State<SignFixApp> {
     }
   }
 
-  void _refresh() => setState(() { _selectedPortal = null; });
-  void _onPortalSelect(PortalType portal) => setState(() => _selectedPortal = portal);
+  String? _quotationNoFromPush(RemoteMessage message) {
+    final eventKey = message.data['eventKey']?.toString();
+    if (eventKey != 'quotation.sent' && eventKey != 'quotation.expiring') {
+      return null;
+    }
+    final quotationNo = message.data['quotationNo']?.toString();
+    return quotationNo == null || quotationNo.isEmpty ? null : quotationNo;
+  }
+
+  void _openQuotationFromPush(RemoteMessage message) {
+    final quotationNo = _quotationNoFromPush(message);
+    if (quotationNo == null) return;
+    if (_customerApi.token == null) {
+      _pendingPushMessage = message;
+      return;
+    }
+    final context = _navigatorKey.currentContext;
+    if (context == null) {
+      _pendingPushMessage = message;
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => QuotationDetailScreen(
+        api: _customerApi,
+        quotationNo: quotationNo,
+      ),
+    ));
+  }
+
+  void _refresh() {
+    setState(() => _selectedPortal = null);
+    final pendingMessage = _pendingPushMessage;
+    if (_customerApi.token != null && pendingMessage != null) {
+      _pendingPushMessage = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openQuotationFromPush(pendingMessage);
+      });
+    }
+  }
+
+  void _onPortalSelect(PortalType portal) =>
+      setState(() => _selectedPortal = portal);
 
   Future<void> _logout() async {
     // Unregister FCM token before logout
@@ -148,17 +207,21 @@ class _SignFixAppState extends State<SignFixApp> {
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
 
     // 3. Rebuild root → now shows portal selection
-    if (mounted) setState(() { _selectedPortal = null; });
+    if (mounted) {
+      setState(() {
+        _selectedPortal = null;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    navigatorKey: _navigatorKey,  // ✅ global key
-    debugShowCheckedModeBanner: false,
-    title: 'SignFix',
-    theme: buildAppTheme(),
-    home: !_ready ? const _SplashScreen() : _buildHome(),
-  );
+        navigatorKey: _navigatorKey, // ✅ global key
+        debugShowCheckedModeBanner: false,
+        title: 'SignFix',
+        theme: buildAppTheme(),
+        home: !_ready ? const _SplashScreen() : _buildHome(),
+      );
 
   Widget _buildHome() {
     // Already logged in
@@ -195,22 +258,28 @@ class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.navyDeep,
-    body: Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 90, height: 90,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: .3), blurRadius: 24)],
-          ),
-          child: ClipOval(
-            child: Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
-          ),
+        backgroundColor: AppColors.splashBg,
+        body: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                      color: AppColors.gold.withValues(alpha: .3),
+                      blurRadius: 24)
+                ],
+              ),
+              child: ClipOval(
+                child:
+                    Image.asset('assets/images/logo.jpeg', fit: BoxFit.cover),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(color: AppColors.gold),
+          ]),
         ),
-        const SizedBox(height: 24),
-        const CircularProgressIndicator(color: AppColors.gold),
-      ]),
-    ),
-  );
+      );
 }

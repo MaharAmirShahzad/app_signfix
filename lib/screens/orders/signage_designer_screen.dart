@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/app_utils.dart';
 import '../../core/app_theme.dart';
 import '../../services/api_client.dart';
 import '../../widgets/common.dart';
@@ -102,8 +103,8 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   ];
 
   late SignageFontOption _selectedFont;
-  Color _textColor = const Color(0xFFFFD700); // Signboard gold
-  Color _glowColor = const Color(0xFFFFC107);
+  Color _textColor = AppColors.gold;
+  Color _glowColor = AppColors.goldLight;
   final TextAlign _alignment = TextAlign.center;
 
   // Backing Materials
@@ -112,35 +113,35 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
       'id': 'acrylic_black',
       'name': 'Glossy Black Acrylic',
       'rate': 950,
-      'color': Color(0xFF0F172A),
+      'color': AppColors.navy,
       'texture': 'gloss'
     },
     {
       'id': 'acrylic_clear',
       'name': 'Clear Acrylic Backing',
       'rate': 850,
-      'color': Color(0x33FFFFFF),
+      'color': AppColors.white20,
       'texture': 'glass'
     },
     {
       'id': 'acp_brushed_gold',
       'name': 'Brushed Gold ACP',
       'rate': 1250,
-      'color': Color(0xFF2C2214),
+      'color': AppColors.goldDark,
       'texture': 'metallic'
     },
     {
       'id': 'acp_silver',
       'name': 'Silver Aluminium Panel',
       'rate': 1100,
-      'color': Color(0xFF1E293B),
+      'color': AppColors.softGray,
       'texture': 'metallic'
     },
     {
       'id': 'wood_grain',
       'name': 'Architectural Walnut Wood',
       'rate': 1350,
-      'color': Color(0xFF1C120C),
+      'color': AppColors.navyDeep,
       'texture': 'wood'
     },
   ];
@@ -148,10 +149,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
 
   // Wall background environments
   static const List<Map<String, dynamic>> _walls = [
-    {'id': 'dark_brick', 'name': 'Exposed Dark Brick', 'bg': Color(0xFF0D1117)},
-    {'id': 'concrete', 'name': 'Industrial Concrete', 'bg': Color(0xFF161B22)},
-    {'id': 'storefront', 'name': 'Modern Storefront', 'bg': Color(0xFF0F172A)},
-    {'id': 'marble', 'name': 'Luxury Dark Marble', 'bg': Color(0xFF050A14)},
+    {'id': 'dark_brick', 'name': 'Exposed Dark Brick', 'bg': AppColors.navy},
+    {'id': 'concrete', 'name': 'Industrial Concrete', 'bg': AppColors.charcoal},
+    {'id': 'storefront', 'name': 'Modern Storefront', 'bg': AppColors.navyDeep},
+    {'id': 'marble', 'name': 'Luxury Dark Marble', 'bg': AppColors.navy},
   ];
   final Map<String, dynamic> _selectedWall = _walls[0];
 
@@ -164,6 +165,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   bool _isGeneratingAi = false;
   String? _aiGeneratedImageUrl;
   String? _aiPrompt;
+  String? _aiGenerationMessage;
 
   bool _submittingOrder = false;
 
@@ -190,6 +192,12 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
     return (areaCost + letteringCost) * _quantity;
   }
 
+  bool get _hasBannerMinimum =>
+      requiresPromotionalOrderMinimum(widget.promotionBannerId);
+
+  double get _minimumOrderShortfall =>
+      _hasBannerMinimum ? orderMinimumShortfall(_calculatedPrice) : 0;
+
   Future<void> _generateAiDesign() async {
     final text = _textCtrl.text.trim();
     if (text.isEmpty) {
@@ -203,49 +211,116 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
 
     setState(() {
       _isGeneratingAi = true;
+      _aiGenerationMessage = 'Submitting your design request...';
     });
 
     try {
-      final res = await widget.api.generateDesignPreview({
-        'category': 'Signage',
+      final color =
+          '#${_textColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
+      final prompt =
+          'Create a photorealistic storefront facade with a custom 3D sign reading "$text". Use ${_selectedFont.name} typography, $color lettering, ${_selectedBacking['name']} backing, and dimensions $_widthFt x $_heightFt ft. Make it a realistic commercial concept image, not production artwork.';
+      final design = await widget.api.createDesignRequest({
         'signType': 'Commercial 3D Sign Board',
         'businessText': text,
-        'font': _selectedFont.name,
-        'color':
-            '#${_textColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
+        'style': '${_selectedFont.category} lettering',
+        'lighting': 'LED',
         'background': _selectedBacking['name'],
-        'style':
-            '${_selectedFont.category} lettering on ${_selectedBacking['name']}',
-        'dimensions': '$_widthFt × $_heightFt ft',
       });
+      final designId = int.tryParse(design['id'].toString());
+      if (designId == null) {
+        throw const ApiException(
+            'The server did not return a design request ID.');
+      }
+      await widget.api.generateDesignConcept(designId, prompt: prompt);
+
+      const pollLimit = Duration(seconds: 90);
+      final stopwatch = Stopwatch()..start();
+      String? imageUrl;
+      String? generatedPrompt;
+      for (var attempt = 0;
+          attempt < 45 && stopwatch.elapsed < pollLimit;
+          attempt++) {
+        if (attempt > 0) {
+          await Future<void>.delayed(const Duration(seconds: 2));
+        }
+        if (!mounted) return;
+        if (attempt % 5 == 0) {
+          setState(() => _aiGenerationMessage =
+              'Generating image... ${stopwatch.elapsed.inSeconds}s');
+        }
+
+        final remaining = pollLimit - stopwatch.elapsed;
+        if (remaining <= Duration.zero) break;
+        final requestTimeout = remaining < const Duration(seconds: 8)
+            ? remaining
+            : const Duration(seconds: 8);
+        Map<String, dynamic> detail;
+        try {
+          detail = await widget.api.getDesign(designId).timeout(requestTimeout);
+        } on TimeoutException {
+          continue;
+        }
+
+        final concepts = detail['concepts'];
+        if (concepts is List && concepts.isNotEmpty && concepts.first is Map) {
+          final latest = concepts.first as Map;
+          imageUrl = latest['imageUrl']?.toString();
+          generatedPrompt = latest['prompt']?.toString();
+          if (imageUrl != null && imageUrl.isNotEmpty) break;
+        }
+
+        final jobs = detail['generationJobs'];
+        if (jobs is List && jobs.isNotEmpty && jobs.first is Map) {
+          final job = jobs.first as Map;
+          if (job['status'] == 'failed') {
+            throw ApiException(
+              job['error']?.toString() ?? 'The AI image generation failed.',
+            );
+          }
+          final result = job['result'];
+          if (result is Map) {
+            imageUrl ??= result['imageUrl']?.toString();
+            generatedPrompt ??= result['prompt']?.toString();
+            if (imageUrl != null && imageUrl.isNotEmpty) break;
+          }
+          if (job['status'] == 'completed' &&
+              (imageUrl == null || imageUrl.isEmpty)) {
+            throw const ApiException(
+                'Generation completed, but the server returned no image.');
+          }
+        }
+      }
+      if (imageUrl == null || imageUrl.isEmpty) {
+        throw const ApiException(
+          'Generation is taking longer than expected. Check AI service/worker configuration and try again.',
+        );
+      }
 
       if (!mounted) return;
       setState(() {
-        _isGeneratingAi = false;
-        _aiGeneratedImageUrl = res['imageUrl']?.toString();
-        _aiPrompt = res['prompt']?.toString();
+        _aiGeneratedImageUrl = imageUrl;
+        _aiPrompt = generatedPrompt ?? prompt;
+        _aiGenerationMessage = null;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            res['isRealAi'] == true
-                ? 'AI Concept generated successfully!'
-                : 'Interactive concept preview rendered. Ready for checkout.',
-          ),
+        const SnackBar(
+          content: Text('AI Concept generated successfully!'),
           backgroundColor: AppColors.success,
         ),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _isGeneratingAi = false;
+        _aiGenerationMessage = e.toString();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('AI Generation note: $e'),
             backgroundColor: AppColors.warning),
       );
+    } finally {
+      if (mounted) setState(() => _isGeneratingAi = false);
     }
   }
 
@@ -268,6 +343,16 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
         const SnackBar(
             content: Text('Please provide delivery address.'),
             backgroundColor: AppColors.danger),
+      );
+      return;
+    }
+    if (_minimumOrderShortfall > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Minimum order is ${money(2500)}. Increase the sign size or add options worth ${money(_minimumOrderShortfall.ceil())} more.',
+          ),
+        ),
       );
       return;
     }
@@ -318,7 +403,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
               style: TextStyle(color: AppColors.white)),
           content: Text(
             'Order #$orderNo has been submitted successfully.\n\nSignboard: "$text"\nFont: ${_selectedFont.name}\nBacking: ${_selectedBacking['name']}\nSize: $_widthFt×$_heightFt ft\nTotal: ₹${_calculatedPrice.round()}\n\nEligible for ₹200 Cashback upon verified payment.',
-            style: const TextStyle(color: AppColors.textLight),
+            style: const TextStyle(color: AppColors.darkSecondary),
           ),
           actions: [
             FilledButton(
@@ -343,11 +428,22 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   @override
   Widget build(BuildContext context) {
     final previewText = _textCtrl.text.isEmpty ? 'SIGNFIX' : _textCtrl.text;
+    final backingColor = _selectedBacking['color'] as Color;
+    final previewBackingColor = Color.alphaBlend(
+      backingColor,
+      _selectedWall['bg'] as Color,
+    );
+    final outlineColor =
+        AppColors.signPreviewOutline(_textColor, previewBackingColor);
+    final previewTextStyle =
+        _selectedFont.styleBuilder(24, _textColor, FontWeight.w800);
 
     return Scaffold(
-      backgroundColor: AppColors.navyDeep,
+      backgroundColor: AppColors.softGray,
       appBar: AppBar(
-        backgroundColor: AppColors.navyDark,
+        backgroundColor: AppColors.appBar,
+        foregroundColor: AppColors.navy,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold),
           onPressed: () => Navigator.pop(context),
@@ -357,11 +453,11 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           children: [
             Text('Signage Design Studio',
                 style: TextStyle(
-                    color: AppColors.white,
+                    color: AppColors.navy,
                     fontWeight: FontWeight.w800,
                     fontSize: 16)),
             Text('Neon Adda 3D Workflow · Approved 5 Fonts',
-                style: TextStyle(color: AppColors.textLight, fontSize: 11)),
+                style: TextStyle(color: AppColors.midGray, fontSize: 11)),
           ],
         ),
         actions: [
@@ -369,20 +465,19 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
             margin: const EdgeInsets.only(right: 14),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: .15),
+              color: AppColors.gold.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(16),
-              border:
-                  Border.all(color: AppColors.success.withValues(alpha: .4)),
+              border: Border.all(color: AppColors.gold.withValues(alpha: .45)),
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.savings_outlined,
-                    color: AppColors.success, size: 13),
+                    color: AppColors.goldDark, size: 13),
                 SizedBox(width: 4),
                 Text('₹200 Cashback',
                     style: TextStyle(
-                        color: AppColors.success,
+                        color: AppColors.goldDark,
                         fontSize: 10,
                         fontWeight: FontWeight.w800)),
               ],
@@ -400,12 +495,12 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
             decoration: BoxDecoration(
               color: _selectedWall['bg'] as Color,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppColors.navyLight, width: 1.5),
-              boxShadow: [
+              border: Border.all(color: AppColors.cardBorder, width: 1.5),
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: .4),
+                  color: AppColors.shadow,
                   blurRadius: 16,
-                  offset: const Offset(0, 8),
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
@@ -418,10 +513,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                   height: 120,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _selectedBacking['color'] as Color,
+                    color: backingColor,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .2),
+                      color: AppColors.white.withValues(alpha: .2),
                       width: 1.2,
                     ),
                     boxShadow: [
@@ -433,23 +528,41 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                     ],
                   ),
                   child: Center(
-                    child: Text(
-                      previewText,
-                      textAlign: _alignment,
-                      style: _selectedFont
-                          .styleBuilder(24, _textColor, FontWeight.w800)
-                          .copyWith(
-                        shadows: [
-                          Shadow(
-                              color: _glowColor.withValues(alpha: .85),
-                              blurRadius: 10),
-                          Shadow(
-                              color: _glowColor.withValues(alpha: .45),
-                              blurRadius: 20),
-                        ],
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (outlineColor != null)
+                          Text(
+                            previewText,
+                            key: const ValueKey('sign-preview-outline'),
+                            textAlign: _alignment,
+                            style: previewTextStyle.copyWith(
+                              foreground: Paint()
+                                ..style = PaintingStyle.stroke
+                                ..strokeWidth = 2.5
+                                ..color = outlineColor,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        Text(
+                          previewText,
+                          key: const ValueKey('sign-preview-text'),
+                          textAlign: _alignment,
+                          style: previewTextStyle.copyWith(
+                            shadows: [
+                              Shadow(
+                                  color: _glowColor.withValues(alpha: .85),
+                                  blurRadius: 10),
+                              Shadow(
+                                  color: _glowColor.withValues(alpha: .45),
+                                  blurRadius: 20),
+                            ],
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -461,13 +574,13 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: .6),
+                      color: AppColors.navy.withValues(alpha: .6),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '${_widthFt.toStringAsFixed(1)} × ${_heightFt.toStringAsFixed(1)} ft (${_areaSqft.toStringAsFixed(1)} sq ft)',
                       style: const TextStyle(
-                          color: AppColors.textLight,
+                          color: AppColors.darkSecondary,
                           fontSize: 10,
                           fontWeight: FontWeight.w700),
                     ),
@@ -481,7 +594,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: .6),
+                      color: AppColors.navy.withValues(alpha: .6),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -502,7 +615,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           TextField(
             controller: _textCtrl,
             style: const TextStyle(
-                color: AppColors.white,
+                color: AppColors.textBody,
                 fontSize: 15,
                 fontWeight: FontWeight.w700),
             decoration: InputDecoration(
@@ -513,7 +626,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                   const Icon(Icons.edit_note_rounded, color: AppColors.gold),
               suffixIcon: _textCtrl.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppColors.textLight),
+                      icon: const Icon(Icons.clear, color: AppColors.midGray),
                       onPressed: () => setState(() => _textCtrl.clear()),
                     )
                   : null,
@@ -525,12 +638,14 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           const SizedBox(height: 20),
 
           // ── STRICT Approved Five Fonts Selection ────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            runSpacing: 6,
+            spacing: 8,
             children: [
               const Text('Approved Five Fonts',
                   style: TextStyle(
-                      color: AppColors.white,
+                      color: AppColors.navy,
                       fontSize: 14,
                       fontWeight: FontWeight.w800)),
               Container(
@@ -541,7 +656,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                 ),
                 child: const Text('Strict Specification',
                     style: TextStyle(
-                        color: AppColors.gold,
+                        color: AppColors.goldDark,
                         fontSize: 9.5,
                         fontWeight: FontWeight.w700)),
               ),
@@ -563,10 +678,12 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.navyMid : AppColors.navyDark,
+                    color: isSelected ? AppColors.gold : AppColors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isSelected ? AppColors.gold : AppColors.navyLight,
+                      color: isSelected
+                          ? AppColors.goldDark
+                          : AppColors.cardBorder,
                       width: isSelected ? 2 : 1,
                     ),
                   ),
@@ -576,8 +693,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                         isSelected
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off,
-                        color:
-                            isSelected ? AppColors.gold : AppColors.textLight,
+                        color: isSelected ? AppColors.gold : AppColors.midGray,
                         size: 18,
                       ),
                       const SizedBox(width: 12),
@@ -587,12 +703,12 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                           children: [
                             Text(font.displayName,
                                 style: const TextStyle(
-                                    color: AppColors.white,
+                                    color: AppColors.navy,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 13)),
                             Text(font.category,
                                 style: const TextStyle(
-                                    color: AppColors.textLight, fontSize: 10)),
+                                    color: AppColors.midGray, fontSize: 10)),
                           ],
                         ),
                       ),
@@ -600,7 +716,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                         'Sample',
                         style: font.styleBuilder(
                             16,
-                            isSelected ? AppColors.gold : AppColors.textLight,
+                            isSelected ? AppColors.gold : AppColors.midGray,
                             FontWeight.bold),
                       ),
                     ],
@@ -614,7 +730,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           // ── Text Color & Glow Palette ──────────────────────────────────────
           const Text('Lettering & Illumination Color',
               style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.navy,
                   fontSize: 14,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
@@ -622,20 +738,11 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
             spacing: 12,
             runSpacing: 10,
             children: [
-              _colorCircle(
-                  const Color(0xFFFFD700), 'Gold', const Color(0xFFFFC107)),
-              _colorCircle(const Color(0xFFFFFFFF), 'Warm White',
-                  const Color(0xFFFFF8E1)),
-              _colorCircle(
-                  const Color(0xFF00E5FF), 'Cyan', const Color(0xFF00B0FF)),
-              _colorCircle(const Color(0xFFFF4DA6), 'Neon Pink',
-                  const Color(0xFFFF1493)),
-              _colorCircle(
-                  const Color(0xFF00FF7F), 'Green', const Color(0xFF00E676)),
-              _colorCircle(const Color(0xFFFF5722), 'Amber Red',
-                  const Color(0xFFFF3D00)),
-              _colorCircle(
-                  const Color(0xFFAA00FF), 'Purple', const Color(0xFF9C27B0)),
+              _colorCircle(AppColors.gold, 'Gold', AppColors.goldLight),
+              _colorCircle(AppColors.white, 'White', AppColors.midGray),
+              _colorCircle(AppColors.navy, 'Navy', AppColors.navyDeep),
+              _colorCircle(AppColors.navyDeep, 'Deep Blue', AppColors.navy),
+              _colorCircle(AppColors.softGray, 'Soft Gray', AppColors.midGray),
             ],
           ),
           const SizedBox(height: 22),
@@ -643,7 +750,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           // ── Backing Material Selector ──────────────────────────────────────
           const Text('Signboard Backing Material',
               style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.navy,
                   fontSize: 14,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
@@ -653,14 +760,16 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
             children: _backings.map((b) {
               final isSel = _selectedBacking['id'] == b['id'];
               return ChoiceChip(
+                key: ValueKey('signage-backing-${b['id']}'),
                 label: Text(b['name'] as String,
-                    style: TextStyle(
-                        color: isSel ? AppColors.navyDeep : AppColors.white,
+                    style: const TextStyle(
+                        color: AppColors.navy,
                         fontSize: 11,
                         fontWeight: FontWeight.w700)),
                 selected: isSel,
                 selectedColor: AppColors.gold,
-                backgroundColor: AppColors.navyDark,
+                backgroundColor: AppColors.white,
+                side: const BorderSide(color: AppColors.cardBorder),
                 onSelected: (_) => setState(() => _selectedBacking = b),
               );
             }).toList(),
@@ -671,25 +780,27 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.navyDark,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.navyLight),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  runSpacing: 4,
+                  spacing: 8,
                   children: [
                     const Text('Dimensions & Scale',
                         style: TextStyle(
-                            color: AppColors.white,
+                            color: AppColors.navy,
                             fontWeight: FontWeight.w800,
                             fontSize: 13)),
                     Text(
                         '${_widthFt.toStringAsFixed(1)} ft Width × ${_heightFt.toStringAsFixed(1)} ft Height',
                         style: const TextStyle(
-                            color: AppColors.gold,
+                            color: AppColors.goldDark,
                             fontWeight: FontWeight.w700,
                             fontSize: 12)),
                   ],
@@ -698,8 +809,8 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                 Row(
                   children: [
                     const Text('Width: ',
-                        style: TextStyle(
-                            color: AppColors.textLight, fontSize: 12)),
+                        style:
+                            TextStyle(color: AppColors.midGray, fontSize: 12)),
                     Expanded(
                       child: Slider(
                         value: _widthFt,
@@ -712,14 +823,14 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                     ),
                     Text('${_widthFt.toStringAsFixed(1)} ft',
                         style: const TextStyle(
-                            color: AppColors.white, fontSize: 12)),
+                            color: AppColors.navy, fontSize: 12)),
                   ],
                 ),
                 Row(
                   children: [
                     const Text('Height: ',
-                        style: TextStyle(
-                            color: AppColors.textLight, fontSize: 12)),
+                        style:
+                            TextStyle(color: AppColors.midGray, fontSize: 12)),
                     Expanded(
                       child: Slider(
                         value: _heightFt,
@@ -732,7 +843,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                     ),
                     Text('${_heightFt.toStringAsFixed(1)} ft',
                         style: const TextStyle(
-                            color: AppColors.white, fontSize: 12)),
+                            color: AppColors.navy, fontSize: 12)),
                   ],
                 ),
               ],
@@ -744,14 +855,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.gold.withValues(alpha: .15),
-                  AppColors.navyDark
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
             ),
@@ -762,18 +866,20 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                   children: [
                     Icon(Icons.auto_awesome, color: AppColors.gold, size: 20),
                     SizedBox(width: 8),
-                    Text('Order & Create: AI Storefront Preview',
-                        style: TextStyle(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14)),
+                    Expanded(
+                      child: Text('Order & Create: AI Storefront Preview',
+                          style: TextStyle(
+                              color: AppColors.navy,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 const Text(
                     'Generate an actual photorealistic AI visualization of your custom sign installed on a storefront facade before final checkout.',
                     style: TextStyle(
-                        color: AppColors.textLight, fontSize: 11, height: 1.3)),
+                        color: AppColors.textBody, fontSize: 11, height: 1.3)),
                 const SizedBox(height: 14),
                 if (_aiGeneratedImageUrl != null) ...[
                   ClipRRect(
@@ -785,10 +891,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         height: 140,
-                        color: AppColors.navyMid,
+                        color: AppColors.softGray,
                         child: const Center(
                             child: Text('AI Concept Preview Ready',
-                                style: TextStyle(color: AppColors.gold))),
+                                style: TextStyle(color: AppColors.goldDark))),
                       ),
                     ),
                   ),
@@ -796,16 +902,25 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                   const Row(
                     children: [
                       Icon(Icons.check_circle,
-                          color: AppColors.success, size: 16),
+                          color: AppColors.goldDark, size: 16),
                       SizedBox(width: 6),
                       Text('AI Design Preview Generated & Attached to Order',
                           style: TextStyle(
-                              color: AppColors.success,
+                              color: AppColors.goldDark,
                               fontSize: 11,
                               fontWeight: FontWeight.w700)),
                     ],
                   ),
                   const SizedBox(height: 12),
+                ],
+                if (_aiGenerationMessage != null &&
+                    _aiGeneratedImageUrl == null) ...[
+                  Text(
+                    _aiGenerationMessage!,
+                    style:
+                        const TextStyle(color: AppColors.warning, fontSize: 12),
+                  ),
+                  const SizedBox(height: 10),
                 ],
                 Row(
                   children: [
@@ -849,23 +964,25 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.navyMid,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.gold.withValues(alpha: .5)),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total Estimated Price:',
-                        style: TextStyle(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14)),
+                    const Expanded(
+                      child: Text('Total Estimated Price:',
+                          style: TextStyle(
+                              color: AppColors.navy,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14)),
+                    ),
                     Text('₹${_calculatedPrice.round()}',
                         style: const TextStyle(
-                            color: AppColors.gold,
+                            color: AppColors.goldDark,
                             fontWeight: FontWeight.w900,
                             fontSize: 20)),
                   ],
@@ -874,29 +991,50 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                 const Row(
                   children: [
                     Icon(Icons.savings_outlined,
-                        color: AppColors.success, size: 14),
+                        color: AppColors.goldDark, size: 14),
                     SizedBox(width: 6),
-                    Text(
-                        'Eligible for ₹200 Promotional Cashback on confirmation',
-                        style:
-                            TextStyle(color: AppColors.success, fontSize: 11)),
+                    Expanded(
+                        child: Text(
+                            'Eligible for ₹200 Promotional Cashback on confirmation',
+                            style: TextStyle(
+                                color: AppColors.goldDark, fontSize: 11))),
                   ],
                 ),
+                if (_minimumOrderShortfall > 0) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Minimum order ${money(2500)}. Increase the sign size by at least ${money(_minimumOrderShortfall.ceil())}.',
+                      style: const TextStyle(
+                        color: AppColors.danger,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _submittingOrder ? null : _submitSignageOrder,
+                    onPressed: _submittingOrder || _minimumOrderShortfall > 0
+                        ? null
+                        : _submitSignageOrder,
                     icon: _submittingOrder
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: AppColors.navyDeep))
+                                strokeWidth: 2, color: AppColors.navy))
                         : const Icon(Icons.shopping_bag_rounded),
-                    label: Text(_submittingOrder
-                        ? 'Submitting Order...'
-                        : 'Order Signboard (₹${_calculatedPrice.round()})'),
+                    label: Text(
+                      _submittingOrder
+                          ? 'Submitting Order...'
+                          : _minimumOrderShortfall > 0
+                              ? 'Minimum order ${money(2500)}'
+                              : 'Order Signboard (${money(_calculatedPrice)})',
+                    ),
                   ),
                 ),
               ],
@@ -911,6 +1049,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   Widget _colorCircle(Color color, String name, Color glow) {
     final isSel = _textColor.toARGB32() == color.toARGB32();
     return GestureDetector(
+      key: ValueKey('signage-text-color-${color.toARGB32()}'),
       onTap: () => setState(() {
         _textColor = color;
         _glowColor = glow;
@@ -939,7 +1078,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           const SizedBox(height: 4),
           Text(name,
               style: TextStyle(
-                  color: isSel ? AppColors.gold : AppColors.textLight,
+                  color: isSel ? AppColors.gold : AppColors.darkSecondary,
                   fontSize: 9.5)),
         ],
       ),

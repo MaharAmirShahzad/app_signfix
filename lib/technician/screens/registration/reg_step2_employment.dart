@@ -65,7 +65,8 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
 
   bool _validate() {
     if (_location.isEmpty) {
-      setState(() => _error = 'Work location is required. Please select your city from the dropdown.');
+      setState(() => _error =
+          'Work location is required. Please select your city from the dropdown.');
       return false;
     }
     setState(() => _error = null);
@@ -86,7 +87,7 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
           backgroundColor: AppColors.navyDark,
           leading: IconButton(
@@ -109,10 +110,10 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
                   style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.white)),
+                      color: AppColors.navy)),
               const SizedBox(height: 4),
               const Text('Step 2 of 3 — Your work information',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  style: TextStyle(color: AppColors.midGray, fontSize: 13)),
               const SizedBox(height: 24),
 
               RegField(
@@ -122,32 +123,32 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
                   hint: 'e.g. SF-T-001'),
               const SizedBox(height: 4),
               const Text('Leave blank if not yet assigned',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  style: TextStyle(color: AppColors.midGray, fontSize: 11)),
               const SizedBox(height: 16),
 
               // Location
               const Text('Work Location *',
                   style: TextStyle(
-                      color: AppColors.textLight,
+                      color: AppColors.midGray,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
-                  color: AppColors.navyMid,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                       color: _location.isEmpty
-                          ? AppColors.navyLight
+                          ? AppColors.inputBorder
                           : AppColors.gold.withValues(alpha: .4)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _location.isEmpty ? null : _location,
                     hint: const Text('Select city / location',
-                        style: TextStyle(color: AppColors.textMuted)),
-                    dropdownColor: AppColors.navyMid,
+                        style: TextStyle(color: AppColors.midGray)),
+                    dropdownColor: AppColors.white,
                     isExpanded: true,
                     icon: const Icon(Icons.arrow_drop_down_rounded,
                         color: AppColors.gold),
@@ -155,8 +156,8 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
                         .map((l) => DropdownMenuItem(
                               value: l,
                               child: Text(l,
-                                  style:
-                                      const TextStyle(color: AppColors.white)),
+                                  style: const TextStyle(
+                                      color: AppColors.charcoal)),
                             ))
                         .toList(),
                     onChanged: (v) => setState(() => _location = v ?? ''),
@@ -169,7 +170,7 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
               Row(children: [
                 const Text('Skills',
                     style: TextStyle(
-                        color: AppColors.textLight,
+                        color: AppColors.midGray,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(width: 8),
@@ -200,10 +201,10 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
                       decoration: BoxDecoration(
                         color: sel
                             ? AppColors.gold.withValues(alpha: .15)
-                            : AppColors.navyDark,
+                            : AppColors.white,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: sel ? AppColors.gold : AppColors.navyLight,
+                            color: sel ? AppColors.gold : AppColors.inputBorder,
                             width: sel ? 1.5 : 1),
                       ),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -214,7 +215,7 @@ class _RegStep2EmploymentState extends State<RegStep2Employment> {
                         ],
                         Text(s,
                             style: TextStyle(
-                              color: sel ? AppColors.gold : AppColors.textLight,
+                              color: sel ? AppColors.navy : AppColors.midGray,
                               fontSize: 12,
                               fontWeight:
                                   sel ? FontWeight.w700 : FontWeight.normal,

@@ -87,7 +87,7 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
           backgroundColor: AppColors.navyDark,
           leading: IconButton(
@@ -110,10 +110,10 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
                   style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.white)),
+                      color: AppColors.navy)),
               const SizedBox(height: 4),
               const Text('Step 3 of 3 — Set your password',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  style: TextStyle(color: AppColors.midGray, fontSize: 13)),
               const SizedBox(height: 24),
 
               // Info box
@@ -133,7 +133,7 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
                       child: Text(
                           'Minimum 10 characters with uppercase, lowercase, number, and special character.',
                           style: TextStyle(
-                              color: AppColors.textLight, fontSize: 12))),
+                              color: AppColors.midGray, fontSize: 12))),
                 ]),
               ),
               const SizedBox(height: 16),
@@ -143,7 +143,7 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
                 controller: _pass,
                 obscureText: _obscure,
                 textInputAction: TextInputAction.next,
-                style: const TextStyle(color: AppColors.white),
+                style: const TextStyle(color: AppColors.charcoal),
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   labelText: 'Password *',
@@ -168,7 +168,7 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
               TextField(
                 controller: _confirm,
                 obscureText: _obscure,
-                style: const TextStyle(color: AppColors.white),
+                style: const TextStyle(color: AppColors.charcoal),
                 decoration: const InputDecoration(
                   labelText: 'Confirm Password *',
                   prefixIcon: Icon(Icons.lock_outline),
@@ -182,12 +182,12 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.navyDark,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                         color: _terms
                             ? AppColors.gold.withValues(alpha: .4)
-                            : AppColors.navyLight),
+                            : AppColors.cardBorder),
                   ),
                   child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,9 +200,8 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
                             color: _terms ? AppColors.gold : Colors.transparent,
                             borderRadius: BorderRadius.circular(5),
                             border: Border.all(
-                                color: _terms
-                                    ? AppColors.gold
-                                    : AppColors.textMuted,
+                                color:
+                                    _terms ? AppColors.gold : AppColors.midGray,
                                 width: 2),
                           ),
                           child: _terms
@@ -215,7 +214,7 @@ class _RegStep3SecurityState extends State<RegStep3Security> {
                             child: RichText(
                           text: const TextSpan(
                             style: TextStyle(
-                                color: AppColors.textLight,
+                                color: AppColors.charcoal,
                                 fontSize: 13,
                                 height: 1.4),
                             children: [
@@ -313,7 +312,7 @@ class _PasswordStrength extends StatelessWidget {
           child: LinearProgressIndicator(
         value: s / 5,
         color: color,
-        backgroundColor: AppColors.navyLight,
+        backgroundColor: AppColors.cardBorder,
         borderRadius: BorderRadius.circular(4),
         minHeight: 4,
       )),

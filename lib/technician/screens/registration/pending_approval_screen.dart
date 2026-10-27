@@ -10,7 +10,7 @@ class PendingApprovalScreen extends StatelessWidget {
     final isRejected = rejectionReason != null;
 
     return Scaffold(
-      backgroundColor: AppColors.navyDeep,
+      backgroundColor: AppColors.softGray,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(28),
@@ -55,7 +55,7 @@ class PendingApprovalScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
-                  color: isRejected ? AppColors.danger : AppColors.white,
+                  color: isRejected ? AppColors.danger : AppColors.navy,
                 ),
               ),
               const SizedBox(height: 12),
@@ -66,7 +66,7 @@ class PendingApprovalScreen extends StatelessWidget {
                     : 'Your registration has been received and is pending admin approval.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: AppColors.textLight, fontSize: 14, height: 1.5),
+                    color: AppColors.midGray, fontSize: 14, height: 1.5),
               ),
 
               if (isRejected && rejectionReason!.isNotEmpty) ...[
@@ -96,7 +96,7 @@ class PendingApprovalScreen extends StatelessWidget {
                               const SizedBox(height: 4),
                               Text(rejectionReason!,
                                   style: const TextStyle(
-                                      color: AppColors.textLight, height: 1.4)),
+                                      color: AppColors.charcoal, height: 1.4)),
                             ])),
                       ]),
                 ),
@@ -109,9 +109,9 @@ class PendingApprovalScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: AppColors.navyDark,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.navyLight),
+                    border: Border.all(color: AppColors.cardBorder),
                   ),
                   child: const Column(children: [
                     _StatusStep(
@@ -131,7 +131,7 @@ class PendingApprovalScreen extends StatelessWidget {
                     ),
                     _StatusStep(
                       icon: Icons.work_outline_rounded,
-                      color: AppColors.textMuted,
+                      color: AppColors.midGray,
                       title: 'Account Activated',
                       subtitle: 'You will receive a notification when approved',
                       done: false,
@@ -156,9 +156,7 @@ class PendingApprovalScreen extends StatelessWidget {
                         child: Text(
                       'You will receive a notification once your account is approved.',
                       style: TextStyle(
-                          color: AppColors.textLight,
-                          fontSize: 12,
-                          height: 1.4),
+                          color: AppColors.midGray, fontSize: 12, height: 1.4),
                     )),
                   ]),
                 ),
@@ -180,7 +178,7 @@ class PendingApprovalScreen extends StatelessWidget {
                     backgroundColor:
                         isRejected ? AppColors.navyMid : AppColors.gold,
                     foregroundColor:
-                        isRejected ? AppColors.white : AppColors.navyDeep,
+                        isRejected ? AppColors.white : AppColors.navy,
                   ),
                 ),
               ),
@@ -190,7 +188,7 @@ class PendingApprovalScreen extends StatelessWidget {
                 const Text(
                   'Contact admin@signfix.in for more information.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  style: TextStyle(color: AppColors.midGray, fontSize: 12),
                 ),
               ],
             ],
@@ -232,7 +230,7 @@ class _StatusStep extends StatelessWidget {
               child: Icon(icon, color: color, size: 16),
             ),
             if (!isLast)
-              Container(width: 2, height: 28, color: AppColors.navyLight),
+              Container(width: 2, height: 28, color: AppColors.cardBorder),
           ]),
           const SizedBox(width: 14),
           Expanded(
@@ -244,10 +242,10 @@ class _StatusStep extends StatelessWidget {
                     Text(title,
                         style: TextStyle(
                           color: isActive
-                              ? AppColors.white
+                              ? AppColors.navy
                               : done
                                   ? AppColors.success
-                                  : AppColors.textMuted,
+                                  : AppColors.midGray,
                           fontWeight:
                               isActive ? FontWeight.w800 : FontWeight.w600,
                           fontSize: 13,
@@ -255,7 +253,7 @@ class _StatusStep extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(subtitle,
                         style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 11)),
+                            color: AppColors.midGray, fontSize: 11)),
                   ]),
             ),
           ),

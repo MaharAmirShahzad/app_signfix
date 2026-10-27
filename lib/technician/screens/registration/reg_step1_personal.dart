@@ -69,7 +69,7 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
   Future<void> _pickPhoto() async {
     final src = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
@@ -79,12 +79,12 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: AppColors.navyLight,
+                  color: AppColors.cardBorder,
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 14),
           const Text('Profile Photo',
               style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.navy,
                   fontWeight: FontWeight.w800,
                   fontSize: 16)),
           const SizedBox(height: 10),
@@ -92,14 +92,14 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
             leading:
                 const Icon(Icons.camera_alt_outlined, color: AppColors.gold),
             title: const Text('Take Photo',
-                style: TextStyle(color: AppColors.white)),
+                style: TextStyle(color: AppColors.navy)),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           ListTile(
             leading:
                 const Icon(Icons.photo_library_outlined, color: AppColors.info),
             title: const Text('Choose from Gallery',
-                style: TextStyle(color: AppColors.white)),
+                style: TextStyle(color: AppColors.navy)),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
         ]),
@@ -118,8 +118,12 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
       lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-              primary: AppColors.gold, surface: AppColors.navyDark),
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.gold,
+            onPrimary: AppColors.navy,
+            surface: AppColors.white,
+            onSurface: AppColors.charcoal,
+          ),
         ),
         child: child!,
       ),
@@ -131,7 +135,8 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
 
   bool _validate() {
     if (_photoPath == null || _photoPath!.isEmpty) {
-      setState(() => _error = 'Profile photo is required. Please add your photo.');
+      setState(
+          () => _error = 'Profile photo is required. Please add your photo.');
       return false;
     }
     if (_name.text.trim().isEmpty) {
@@ -194,7 +199,7 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
           backgroundColor: AppColors.navyDark,
           leading: IconButton(
@@ -217,10 +222,10 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
                   style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.white)),
+                      color: AppColors.navy)),
               const SizedBox(height: 4),
               const Text('Step 1 of 3 — Tell us about yourself',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  style: TextStyle(color: AppColors.midGray, fontSize: 13)),
               const SizedBox(height: 24),
 
               // Photo
@@ -233,7 +238,7 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
                     height: 90,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.navyMid,
+                      color: AppColors.white,
                       border: Border.all(
                           color: _photoPath == null
                               ? AppColors.danger.withValues(alpha: .7)
@@ -244,7 +249,7 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
                       child: _photoPath != null
                           ? Image.file(File(_photoPath!), fit: BoxFit.cover)
                           : const Icon(Icons.person_outline,
-                              size: 40, color: AppColors.textMuted),
+                              size: 40, color: AppColors.midGray),
                     ),
                   ),
                   Positioned(
@@ -255,7 +260,7 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
                       decoration: const BoxDecoration(
                           color: AppColors.gold, shape: BoxShape.circle),
                       child: const Icon(Icons.camera_alt_rounded,
-                          size: 14, color: AppColors.navyDeep),
+                          size: 14, color: AppColors.navy),
                     ),
                   ),
                 ]),
@@ -285,7 +290,7 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
                 controller: _mobile,
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
-                style: const TextStyle(color: AppColors.white),
+                style: const TextStyle(color: AppColors.charcoal),
                 decoration: const InputDecoration(
                   labelText: 'Mobile Number *',
                   hintText: '+91 9876543210',
@@ -294,7 +299,7 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
               ),
               const SizedBox(height: 4),
               const Text('OTP will be sent to this number',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                  style: TextStyle(color: AppColors.midGray, fontSize: 11)),
               const SizedBox(height: 12),
               RegField(
                   ctrl: _email,
@@ -310,11 +315,11 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
                   decoration: BoxDecoration(
-                    color: AppColors.navyMid,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                         color: _doj.text.isEmpty
-                            ? AppColors.navyLight
+                            ? AppColors.inputBorder
                             : AppColors.gold.withValues(alpha: .4)),
                   ),
                   child: Row(children: [
@@ -326,12 +331,12 @@ class _RegStep1PersonalState extends State<RegStep1Personal> {
                       _doj.text.isEmpty ? 'Date of Joining *' : _doj.text,
                       style: TextStyle(
                           color: _doj.text.isEmpty
-                              ? AppColors.textMuted
-                              : AppColors.white,
+                              ? AppColors.midGray
+                              : AppColors.midGray,
                           fontSize: 15),
                     )),
                     const Icon(Icons.arrow_drop_down_rounded,
-                        color: AppColors.textMuted),
+                        color: AppColors.midGray),
                   ]),
                 ),
               ),

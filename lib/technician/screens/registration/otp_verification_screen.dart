@@ -153,7 +153,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
           backgroundColor: AppColors.navyDark,
           leading: IconButton(
@@ -192,12 +192,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.white)),
+                    color: AppColors.navy)),
             const SizedBox(height: 8),
             Text('Enter the 6-digit OTP sent to\n${widget.data.email}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    color: AppColors.textLight, fontSize: 14, height: 1.5)),
+                    color: AppColors.midGray, fontSize: 14, height: 1.5)),
             const SizedBox(height: 32),
 
             // 6 OTP boxes
@@ -210,14 +210,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         height: 56,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.navyMid,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _ctls[i].text.isNotEmpty
                                 ? AppColors.gold
                                 : _nodes[i].hasFocus
                                     ? AppColors.info
-                                    : AppColors.navyLight,
+                                    : AppColors.inputBorder,
                             width:
                                 _ctls[i].text.isNotEmpty || _nodes[i].hasFocus
                                     ? 2
@@ -234,7 +234,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                             FilteringTextInputFormatter.digitsOnly
                           ],
                           style: const TextStyle(
-                              color: AppColors.gold,
+                              color: AppColors.navy,
                               fontSize: 22,
                               fontWeight: FontWeight.w900),
                           decoration: const InputDecoration(
@@ -276,18 +276,16 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.timer_outlined,
                   size: 16,
-                  color: _secondsLeft > 0
-                      ? AppColors.textMuted
-                      : AppColors.danger),
+                  color:
+                      _secondsLeft > 0 ? AppColors.midGray : AppColors.danger),
               const SizedBox(width: 6),
               Text(
                 _secondsLeft > 0
                     ? 'Resend OTP in $_timerText'
                     : 'You can request a new OTP now.',
                 style: TextStyle(
-                    color: _secondsLeft > 0
-                        ? AppColors.textLight
-                        : AppColors.danger,
+                    color:
+                        _secondsLeft > 0 ? AppColors.midGray : AppColors.danger,
                     fontSize: 13),
               ),
             ]),
@@ -309,7 +307,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 : TextButton(
                     onPressed: null,
                     child: Text('Resend OTP in $_timerText',
-                        style: const TextStyle(color: AppColors.textMuted)),
+                        style: const TextStyle(color: AppColors.midGray)),
                   ),
 
             if (_error != null) ...[

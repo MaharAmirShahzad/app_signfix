@@ -32,7 +32,8 @@ class LoadingButton extends StatelessWidget {
       child: loading
           ? const SizedBox.square(
               dimension: 21,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppColors.navy))
           : child);
 }
 
@@ -61,8 +62,8 @@ class ActionCard extends StatelessWidget {
               child: Row(children: [
                 CircleAvatar(
                     radius: 28,
-                    backgroundColor: Colors.white24,
-                    child: Icon(icon, color: Colors.white, size: 28)),
+                    backgroundColor: AppColors.white.withValues(alpha: .24),
+                    child: Icon(icon, color: AppColors.white, size: 28)),
                 const SizedBox(width: 16),
                 Expanded(
                     child: Column(
@@ -70,16 +71,17 @@ class ActionCard extends StatelessWidget {
                         children: [
                       Text(title,
                           style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 5),
                       Text(subtitle,
-                          style: const TextStyle(color: Colors.white70)),
+                          style: const TextStyle(color: AppColors.white70)),
                       const SizedBox(height: 10),
                       Text(label,
                           style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w700))
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w700))
                     ]))
               ]))));
 }

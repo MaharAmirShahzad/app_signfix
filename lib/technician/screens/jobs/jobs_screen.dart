@@ -117,17 +117,17 @@ class _JobsScreenState extends State<JobsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         body: RefreshIndicator(
-          color: AppColors.info,
-          backgroundColor: AppColors.navyDark,
+          color: AppColors.gold,
+          backgroundColor: AppColors.white,
           onRefresh: _doRefresh,
           child: FutureBuilder<List<dynamic>>(
             future: _future,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
                 return const Center(
-                    child: CircularProgressIndicator(color: AppColors.info));
+                    child: CircularProgressIndicator(color: AppColors.gold));
               }
               if (snapshot.hasError) {
                 final errMsg = snapshot.error.toString();
@@ -167,7 +167,7 @@ class _JobsScreenState extends State<JobsScreen> {
                               ? 'Session Expired'
                               : 'Could Not Load Jobs',
                           style: const TextStyle(
-                              color: AppColors.white,
+                              color: AppColors.navy,
                               fontSize: 18,
                               fontWeight: FontWeight.w800)),
                       const SizedBox(height: 8),
@@ -176,7 +176,7 @@ class _JobsScreenState extends State<JobsScreen> {
                               ? 'Your session has expired. Please sign in again.'
                               : 'Unable to load data. Please try again.',
                           style: const TextStyle(
-                              color: AppColors.textLight, fontSize: 13),
+                              color: AppColors.midGray, fontSize: 13),
                           textAlign: TextAlign.center),
                       const SizedBox(height: 24),
                       SizedBox(
@@ -268,7 +268,7 @@ class _JobsScreenState extends State<JobsScreen> {
                       padding: EdgeInsets.all(50),
                       child: Center(
                           child: Text('No jobs match this filter.',
-                              style: TextStyle(color: AppColors.textLight))),
+                              style: TextStyle(color: AppColors.midGray))),
                     )
                   else
                     ...jobs.map((job) => Padding(
@@ -327,7 +327,7 @@ class _Stat extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
           decoration: BoxDecoration(
-            color: AppColors.navyDark,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: color.withValues(alpha: .35)),
           ),
@@ -337,8 +337,7 @@ class _Stat extends StatelessWidget {
                     fontSize: 24, fontWeight: FontWeight.w900, color: color)),
             const SizedBox(height: 3),
             Text(label,
-                style:
-                    const TextStyle(fontSize: 11, color: AppColors.textLight),
+                style: const TextStyle(fontSize: 11, color: AppColors.midGray),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
@@ -360,7 +359,7 @@ class JobCard extends StatelessWidget {
       case 'high':
         return AppColors.warning;
       default:
-        return Colors.grey;
+        return AppColors.midGray;
     }
   }
 
@@ -370,12 +369,12 @@ class JobCard extends StatelessWidget {
     final isEmergency = priority == 'emergency';
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.navyDark,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isEmergency
               ? AppColors.danger.withValues(alpha: .6)
-              : AppColors.navyLight,
+              : AppColors.cardBorder,
           width: isEmergency ? 1.5 : 1,
         ),
         boxShadow: isEmergency
@@ -441,10 +440,10 @@ class JobCard extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.white)),
+                    color: AppColors.navy)),
             Text(job['category']?.toString() ?? 'Service job',
-                style: const TextStyle(color: AppColors.textLight)),
-            const Divider(height: 20, color: AppColors.navyLight),
+                style: const TextStyle(color: AppColors.midGray)),
+            const Divider(height: 20, color: AppColors.cardBorder),
             Row(children: [
               const Icon(Icons.location_on_outlined,
                   size: 16, color: AppColors.info),
@@ -454,7 +453,7 @@ class JobCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 13, color: AppColors.textLight)),
+                        fontSize: 13, color: AppColors.midGray)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -599,7 +598,7 @@ class _JobDetailState extends State<JobDetailScreen> {
     final priority = widget.job['priority']?.toString() ?? 'normal';
 
     return Scaffold(
-      backgroundColor: AppColors.navyDeep,
+      backgroundColor: AppColors.softGray,
       appBar: AppBar(
         backgroundColor: AppColors.navyDark,
         leading: IconButton(
@@ -619,8 +618,8 @@ class _JobDetailState extends State<JobDetailScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: priority == 'emergency'
-                    ? [const Color(0xFF5C0A0A), const Color(0xFF3A0606)]
-                    : [const Color(0xFF0A1A4A), const Color(0xFF06102A)],
+                    ? [AppColors.danger, AppColors.navy]
+                    : [AppColors.navyDeep, AppColors.navy],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -639,18 +638,20 @@ class _JobDetailState extends State<JobDetailScreen> {
                       fontSize: 22,
                       fontWeight: FontWeight.w800)),
               Text(widget.job['category']?.toString() ?? 'Service job',
-                  style: const TextStyle(color: AppColors.textLight)),
+                  style: const TextStyle(color: AppColors.darkSecondary)),
               const SizedBox(height: 10),
               if ((widget.job['description'] ?? '').toString().isNotEmpty)
                 Text(widget.job['description'].toString(),
                     style: const TextStyle(
-                        color: AppColors.textLight, fontSize: 13, height: 1.4)),
+                        color: AppColors.darkSecondary,
+                        fontSize: 13,
+                        height: 1.4)),
               const SizedBox(height: 12),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .12),
+                  color: AppColors.white.withValues(alpha: .12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(humanize(status),
@@ -668,9 +669,9 @@ class _JobDetailState extends State<JobDetailScreen> {
           // Contact & location
           Container(
             decoration: BoxDecoration(
-              color: AppColors.navyDark,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.navyLight),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Column(children: [
               ListTile(
@@ -678,9 +679,9 @@ class _JobDetailState extends State<JobDetailScreen> {
                     color: AppColors.info),
                 title: Text(
                     widget.job['address']?.toString() ?? 'Location pending',
-                    style: const TextStyle(color: AppColors.white)),
+                    style: const TextStyle(color: AppColors.charcoal)),
                 subtitle: const Text('Navigate to site',
-                    style: TextStyle(color: AppColors.textMuted)),
+                    style: TextStyle(color: AppColors.midGray)),
                 trailing: IconButton(
                   onPressed: _openMaps,
                   icon: const Icon(Icons.navigation_outlined,
@@ -688,15 +689,15 @@ class _JobDetailState extends State<JobDetailScreen> {
                   tooltip: 'Open in Maps',
                 ),
               ),
-              const Divider(height: 0, color: AppColors.navyLight, indent: 56),
+              const Divider(height: 0, color: AppColors.cardBorder, indent: 56),
               ListTile(
                 leading:
                     const Icon(Icons.phone_outlined, color: AppColors.success),
                 title: Text(
                     widget.job['phone']?.toString() ?? 'Contact unavailable',
-                    style: const TextStyle(color: AppColors.white)),
+                    style: const TextStyle(color: AppColors.charcoal)),
                 subtitle: const Text('Call customer',
-                    style: TextStyle(color: AppColors.textMuted)),
+                    style: TextStyle(color: AppColors.midGray)),
                 trailing: IconButton(
                   onPressed: _callCustomer,
                   icon:
@@ -712,9 +713,9 @@ class _JobDetailState extends State<JobDetailScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.navyDark,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.navyLight),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -722,14 +723,14 @@ class _JobDetailState extends State<JobDetailScreen> {
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
-                      color: AppColors.white)),
+                      color: AppColors.navy)),
               const SizedBox(height: 12),
               LinearProgressIndicator(
                 value: (idx + 1) / _flow.length,
                 borderRadius: BorderRadius.circular(8),
                 minHeight: 6,
                 color: _stepColor(status),
-                backgroundColor: AppColors.navyLight,
+                backgroundColor: AppColors.cardBorder,
               ),
               const SizedBox(height: 8),
               Text(
@@ -758,7 +759,7 @@ class _JobDetailState extends State<JobDetailScreen> {
                         height: isCurrent ? 12 : 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isDoneStep ? color : AppColors.navyLight,
+                          color: isDoneStep ? color : AppColors.cardBorder,
                           boxShadow: isCurrent
                               ? [
                                   BoxShadow(
@@ -773,7 +774,7 @@ class _JobDetailState extends State<JobDetailScreen> {
                         _stepLabel(step),
                         style: TextStyle(
                           fontSize: 8,
-                          color: isDoneStep ? color : AppColors.textMuted,
+                          color: isDoneStep ? color : AppColors.midGray,
                           fontWeight:
                               isCurrent ? FontWeight.w800 : FontWeight.w400,
                         ),
@@ -794,16 +795,16 @@ class _JobDetailState extends State<JobDetailScreen> {
               style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.white)),
+                  color: AppColors.navy)),
           const SizedBox(height: 8),
           ...evidence.keys.map((kind) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.navyDark,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.navyLight),
+                  border: Border.all(color: AppColors.cardBorder),
                 ),
                 child: Row(children: [
                   Container(
@@ -822,7 +823,7 @@ class _JobDetailState extends State<JobDetailScreen> {
                           children: [
                         Text('${humanize(kind)} photos',
                             style: const TextStyle(
-                                color: AppColors.white,
+                                color: AppColors.charcoal,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14)),
                         Text(
@@ -830,7 +831,7 @@ class _JobDetailState extends State<JobDetailScreen> {
                                 ? 'No photos yet'
                                 : '${evidence[kind]!.length} photo(s) captured',
                             style: const TextStyle(
-                                color: AppColors.textMuted, fontSize: 12)),
+                                color: AppColors.midGray, fontSize: 12)),
                       ])),
                   const SizedBox(width: 8),
                   GestureDetector(
@@ -866,12 +867,12 @@ class _JobDetailState extends State<JobDetailScreen> {
               style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.white)),
+                  color: AppColors.navy)),
           const SizedBox(height: 8),
           TextField(
             controller: notes,
             maxLines: 3,
-            style: const TextStyle(color: AppColors.white),
+            style: const TextStyle(color: AppColors.charcoal),
             decoration: const InputDecoration(
               labelText: 'Work notes',
               alignLabelWithHint: true,
@@ -881,7 +882,7 @@ class _JobDetailState extends State<JobDetailScreen> {
           const SizedBox(height: 10),
           TextField(
             controller: parts,
-            style: const TextStyle(color: AppColors.white),
+            style: const TextStyle(color: AppColors.charcoal),
             decoration: const InputDecoration(
               labelText: 'Parts / materials used',
               prefixIcon: Icon(Icons.inventory_2_outlined),
@@ -892,7 +893,7 @@ class _JobDetailState extends State<JobDetailScreen> {
             controller: otp,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            style: const TextStyle(color: AppColors.white),
+            style: const TextStyle(color: AppColors.charcoal),
             decoration: const InputDecoration(
               labelText: 'Customer completion OTP',
               hintText: 'Enter OTP given by customer',
@@ -905,9 +906,9 @@ class _JobDetailState extends State<JobDetailScreen> {
           if ((widget.job['statusHistory'] as List? ?? []).isNotEmpty)
             Container(
               decoration: BoxDecoration(
-                color: AppColors.navyDark,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.navyLight),
+                border: Border.all(color: AppColors.cardBorder),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -918,7 +919,7 @@ class _JobDetailState extends State<JobDetailScreen> {
                           style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 15,
-                              color: AppColors.white)),
+                              color: AppColors.navy)),
                       const SizedBox(height: 10),
                       ...(widget.job['statusHistory'] as List).map((h) {
                         final m = h as Map<String, dynamic>;
@@ -933,10 +934,10 @@ class _JobDetailState extends State<JobDetailScreen> {
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 13,
-                                        color: AppColors.white))),
+                                        color: AppColors.charcoal))),
                             Text(m['time'] ?? '',
                                 style: const TextStyle(
-                                    fontSize: 11, color: AppColors.textMuted)),
+                                    fontSize: 11, color: AppColors.midGray)),
                           ]),
                         );
                       }),

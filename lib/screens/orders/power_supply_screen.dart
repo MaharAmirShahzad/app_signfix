@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../core/app_utils.dart';
 import '../../core/app_theme.dart';
 import '../../services/api_client.dart';
 import '../../widgets/common.dart';
@@ -66,7 +67,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       inputVoltage: 'AC 180–264V (50/60Hz)',
       ipRating: 'IP53 Rainproof',
       price: 1650,
-      description: 'Honeycomb ventilated aluminium housing with ultra-low thermal resistance for outdoor signboards.',
+      description:
+          'Honeycomb ventilated aluminium housing with ultra-low thermal resistance for outdoor signboards.',
       specs: [
         'Output: 12V DC ± 2% / 33.3 Amperes',
         'Input: AC 180–264V 50/60Hz',
@@ -75,7 +77,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         'Cooling: Natural convection with honeycomb heat sink',
         'Warranty: 1 Year Manufacturer Replacement',
       ],
-      bestFor: 'Large 3D Acrylic letters, Neon flex installations, Outdoor store signs',
+      bestFor:
+          'Large 3D Acrylic letters, Neon flex installations, Outdoor store signs',
       icon: Icons.power_rounded,
     ),
     PowerSupplyProduct(
@@ -88,7 +91,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       inputVoltage: 'AC 180–264V',
       ipRating: 'IP20 Indoor / Enclosed',
       price: 950,
-      description: 'Fanless 100% silent operation ideal for indoor boutique displays, cafés, and office signage.',
+      description:
+          'Fanless 100% silent operation ideal for indoor boutique displays, cafés, and office signage.',
       specs: [
         'Output: 12V DC / 16.7 Amperes',
         'Efficiency: ≥ 89%',
@@ -96,7 +100,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         'Built-in EMI filter with minimal harmonic distortion',
         'Warranty: 1 Year SignFix Warranty',
       ],
-      bestFor: 'Medium neon signs, back-lit letter signs, indoor boutique displays',
+      bestFor:
+          'Medium neon signs, back-lit letter signs, indoor boutique displays',
       icon: Icons.bolt_rounded,
     ),
     PowerSupplyProduct(
@@ -109,7 +114,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       inputVoltage: 'AC 190–240V',
       ipRating: 'IP20 Concealed',
       price: 620,
-      description: 'Super-slim 18mm profile designed to fit hidden inside letter channels or narrow wall cavities.',
+      description:
+          'Super-slim 18mm profile designed to fit hidden inside letter channels or narrow wall cavities.',
       specs: [
         'Output: 12V DC / 8.3 Amperes',
         'Profile Thickness: 18mm ultra-thin',
@@ -129,7 +135,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       inputVoltage: 'AC 90–264V Universal',
       ipRating: 'IP67 Submersible / Waterproof',
       price: 2450,
-      description: 'Full epoxy silicone potted internal circuit with 4kV lightning surge protection for harsh outdoor climates.',
+      description:
+          'Full epoxy silicone potted internal circuit with 4kV lightning surge protection for harsh outdoor climates.',
       specs: [
         'Output: 12V DC / 29.2 Amperes',
         'Waterproof Grade: IP67 (100% rain & jet spray proof)',
@@ -137,7 +144,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         'Operating Temp: -30°C to +65°C',
         'Warranty: 2 Years Commercial Warranty',
       ],
-      bestFor: 'Exposed outdoor rooftop signs, pylon signboards, high-humidity environments',
+      bestFor:
+          'Exposed outdoor rooftop signs, pylon signboards, high-humidity environments',
       icon: Icons.water_drop_rounded,
     ),
     PowerSupplyProduct(
@@ -150,14 +158,16 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       inputVoltage: 'AC 180–264V',
       ipRating: 'IP53 Rainproof',
       price: 1850,
-      description: '24V architecture designed to halve line current and eliminate brightness drop across long cable runs.',
+      description:
+          '24V architecture designed to halve line current and eliminate brightness drop across long cable runs.',
       specs: [
         'Output: 24V DC / 16.7 Amperes (Dual screw terminals)',
         'Significantly reduces voltage drop on cable runs exceeding 15 meters',
         'Heavy-duty aluminium casing with grounding lug',
         'Efficiency: 91%',
       ],
-      bestFor: 'Long neon strip runs, edge-lit panels, large architectural sign displays',
+      bestFor:
+          'Long neon strip runs, edge-lit panels, large architectural sign displays',
       icon: Icons.electrical_services_rounded,
     ),
     PowerSupplyProduct(
@@ -170,14 +180,16 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       inputVoltage: 'AC 180–240V / Solar DC Input',
       ipRating: 'IP65 Weatherproof',
       price: 4800,
-      description: 'Keeps commercial signboards illuminated for 4-6 hours during load shedding and power cuts automatically.',
+      description:
+          'Keeps commercial signboards illuminated for 4-6 hours during load shedding and power cuts automatically.',
       specs: [
         'Capacity: 12.8V 24Ah LiFePO4 (over 2500 cycle life)',
         'Smart BMS with overcharge, deep discharge and thermal cutoff',
         'Switchover Time: Zero-break continuous illumination (< 5ms)',
         'Integrated digital voltage & charge indicator',
       ],
-      bestFor: '24/7 business signs, pharmacy & hospital signs, standalone kiosk signage',
+      bestFor:
+          '24/7 business signs, pharmacy & hospital signs, standalone kiosk signage',
       icon: Icons.battery_charging_full_rounded,
     ),
     PowerSupplyProduct(
@@ -190,14 +202,16 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       inputVoltage: 'DC 12V/24V',
       ipRating: 'IP68 Waterproof',
       price: 380,
-      description: 'Heavy duty 14 AWG pure copper wires with screw-locking sealed connectors for fast and safe sign wiring.',
+      description:
+          'Heavy duty 14 AWG pure copper wires with screw-locking sealed connectors for fast and safe sign wiring.',
       specs: [
         '5 Sets of male/female waterproof screw-lock plugs',
         'Cable: 14 AWG double-insulated copper wire (30cm per pigtail)',
         'Rated Current: Up to 15A continuous per connector',
         'Eliminates soldering and messy electrical tape',
       ],
-      bestFor: 'Fast and safe electrical connection between sign letters and driver',
+      bestFor:
+          'Fast and safe electrical connection between sign letters and driver',
       icon: Icons.cable_rounded,
     ),
   ];
@@ -244,7 +258,23 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
     return total;
   }
 
+    bool get _hasBannerMinimum =>
+      requiresPromotionalOrderMinimum(widget.promotionBannerId);
+
+  double get _minimumOrderShortfall =>
+      _hasBannerMinimum ? orderMinimumShortfall(_subtotal) : 0;
+
   Future<void> _proceedToCheckout() async {
+    if (_minimumOrderShortfall > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Minimum order is ${money(2500)}. Add ${money(_minimumOrderShortfall.ceil())} more to continue.',
+          ),
+        ),
+      );
+      return;
+    }
     final address = _structuredAddress?.fullDisplayAddress.isNotEmpty == true
         ? _structuredAddress!.fullDisplayAddress
         : _addressCtrl.text.trim();
@@ -282,7 +312,8 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         'deliveryAddress': _structuredAddress?.toMap(),
         'saveAddress': _structuredAddress?.saveToProfile ?? false,
         'estimatedPrice': _subtotal,
-        'idempotencyKey': '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32).toRadixString(16)}',
+        'idempotencyKey':
+            '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32).toRadixString(16)}',
         'promotionBannerId': widget.promotionBannerId,
       };
 
@@ -296,8 +327,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: AppColors.navyDark,
-          icon: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 48),
-          title: const Text('Order Placed Successfully', style: TextStyle(color: AppColors.white)),
+          icon: const Icon(Icons.check_circle_rounded,
+              color: AppColors.success, size: 48),
+          title: const Text('Order Placed Successfully',
+              style: TextStyle(color: AppColors.white)),
           content: Text(
             'Order #$orderId has been submitted for ${_selectedProduct.name} (Qty: $_quantity).\n\nTotal: ₹${_subtotal.round()}\nPromotion Banner: ${widget.promotionBannerId} (Eligible for ₹200 Cashback upon payment confirmation).',
             style: const TextStyle(color: AppColors.textLight),
@@ -325,9 +358,11 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.navyDeep,
+      backgroundColor: AppColors.softGray,
       appBar: AppBar(
-        backgroundColor: AppColors.navyDark,
+        backgroundColor: AppColors.appBar,
+        foregroundColor: AppColors.navy,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold),
           onPressed: () => Navigator.pop(context),
@@ -335,8 +370,13 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Power Supply & Drivers', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 16)),
-            Text('Electrical Signage Components · Verified Specs', style: TextStyle(color: AppColors.textLight, fontSize: 11)),
+            Text('Power Supply & Drivers',
+                style: TextStyle(
+                    color: AppColors.navy,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16)),
+            Text('Electrical Signage Components · Verified Specs',
+                style: TextStyle(color: AppColors.midGray, fontSize: 11)),
           ],
         ),
         actions: [
@@ -344,16 +384,21 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
             margin: const EdgeInsets.only(right: 14),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: .15),
+              color: AppColors.gold.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.success.withValues(alpha: .4)),
+              border: Border.all(color: AppColors.gold.withValues(alpha: .45)),
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.savings_outlined, color: AppColors.success, size: 13),
+                Icon(Icons.savings_outlined,
+                    color: AppColors.goldDark, size: 13),
                 SizedBox(width: 4),
-                Text('₹200 Cashback', style: TextStyle(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.w800)),
+                Text('₹200 Cashback',
+                    style: TextStyle(
+                        color: AppColors.goldDark,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800)),
               ],
             ),
           ),
@@ -367,24 +412,34 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [AppColors.info.withValues(alpha: .2), AppColors.navyDark],
+                colors: [AppColors.gold.withValues(alpha: .1), AppColors.white],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.info.withValues(alpha: .3)),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: const Row(
               children: [
-                Icon(Icons.electrical_services_rounded, color: AppColors.info, size: 36),
+                Icon(Icons.electrical_services_rounded,
+                    color: AppColors.gold, size: 36),
                 SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Commercial Signboard Power Supplies', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                      Text('Commercial Signboard Power Supplies',
+                          style: TextStyle(
+                              color: AppColors.navy,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14)),
                       SizedBox(height: 4),
-                      Text('High-efficiency 12V/24V rainproof drivers, transformers, IP67 waterproof supplies & backup batteries.', style: TextStyle(color: AppColors.textLight, fontSize: 11, height: 1.3)),
+                      Text(
+                          'High-efficiency 12V/24V rainproof drivers, transformers, IP67 waterproof supplies & backup batteries.',
+                          style: TextStyle(
+                              color: AppColors.textBody,
+                              fontSize: 11,
+                              height: 1.3)),
                     ],
                   ),
                 ),
@@ -397,22 +452,31 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.navyDark,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.gold.withValues(alpha: .3)),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.calculate_outlined, color: AppColors.gold, size: 18),
+                    Icon(Icons.calculate_outlined,
+                        color: AppColors.gold, size: 18),
                     SizedBox(width: 8),
-                    Text('Load Sizing Calculator', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800, fontSize: 13)),
+                    Expanded(
+                      child: Text('Load Sizing Calculator',
+                          style: TextStyle(
+                              color: AppColors.navy,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text('Enter estimated total neon length or sign outline to calculate recommended power wattage with safety headroom:', style: TextStyle(color: AppColors.textLight, fontSize: 11)),
+                const Text(
+                    'Enter estimated total neon length or sign outline to calculate recommended power wattage with safety headroom:',
+                    style: TextStyle(color: AppColors.textBody, fontSize: 11)),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -420,30 +484,41 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                       child: TextField(
                         controller: _neonLengthCtrl,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(color: AppColors.white, fontSize: 14),
+                        style: const TextStyle(
+                            color: AppColors.charcoal, fontSize: 14),
                         decoration: InputDecoration(
                           labelText: 'Estimated Neon Length (Feet)',
                           labelStyle: const TextStyle(fontSize: 12),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
                           suffixText: 'ft',
-                          suffixStyle: const TextStyle(color: AppColors.textLight),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          suffixStyle:
+                              const TextStyle(color: AppColors.textSecondary),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8)),
                         ),
                         onChanged: (_) => _updateRecommendedWattage(),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppColors.gold.withValues(alpha: .15),
+                        color: AppColors.softGray,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
+                        border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: Column(
                         children: [
-                          const Text('Recommended', style: TextStyle(color: AppColors.textLight, fontSize: 9)),
-                          Text('≥ ${_calculatedRecommendedWatts}W', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 16)),
+                          const Text('Recommended',
+                              style: TextStyle(
+                                  color: AppColors.textSecondary, fontSize: 9)),
+                          Text('≥ ${_calculatedRecommendedWatts}W',
+                              style: const TextStyle(
+                                  color: AppColors.goldDark,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16)),
                         ],
                       ),
                     ),
@@ -455,7 +530,11 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
           const SizedBox(height: 22),
 
           // ── Product Catalog Section ─────────────────────────────────────────
-          const Text('Select Power Supply or Driver', style: TextStyle(color: AppColors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+          const Text('Select Power Supply or Driver',
+              style: TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           ListView.separated(
             shrinkWrap: true,
@@ -465,7 +544,9 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
             itemBuilder: (_, i) {
               final item = _catalog[i];
               final isSelected = _selectedProduct.id == item.id;
-              final isRecommended = item.wattage >= _calculatedRecommendedWatts && item.category.contains('Supply');
+              final isRecommended =
+                  item.wattage >= _calculatedRecommendedWatts &&
+                      item.category.contains('Supply');
 
               return GestureDetector(
                 onTap: () => setState(() => _selectedProduct = item),
@@ -473,10 +554,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.navyMid : AppColors.navyDark,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: isSelected ? AppColors.info : AppColors.navyLight,
+                      color: isSelected ? AppColors.gold : AppColors.cardBorder,
                       width: isSelected ? 2 : 1,
                     ),
                   ),
@@ -489,10 +570,11 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: AppColors.info.withValues(alpha: .15),
+                              color: AppColors.softGray,
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Icon(item.icon, color: AppColors.info, size: 22),
+                            child: Icon(item.icon,
+                                color: AppColors.goldDark, size: 22),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -502,19 +584,30 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Text(item.name, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                                      child: Text(item.name,
+                                          style: const TextStyle(
+                                              color: AppColors.navy,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13)),
                                     ),
-                                    Text('₹${item.price.round()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 15)),
+                                    Text('₹${item.price.round()}',
+                                        style: const TextStyle(
+                                            color: AppColors.goldDark,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 15)),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
-                                Row(
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
                                   children: [
-                                    _specPill(item.outputVoltage, AppColors.goldLight),
-                                    const SizedBox(width: 6),
-                                    _specPill('${item.wattage}W', AppColors.info),
-                                    const SizedBox(width: 6),
-                                    _specPill(item.ipRating, AppColors.success),
+                                    _specPill(
+                                        item.outputVoltage, AppColors.goldDark),
+                                    _specPill(
+                                        '${item.wattage}W', AppColors.navy),
+                                    _specPill(
+                                        item.ipRating, AppColors.navyDeep),
                                   ],
                                 ),
                               ],
@@ -523,16 +616,24 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(item.description, style: const TextStyle(color: AppColors.textLight, fontSize: 11)),
+                      Text(item.description,
+                          style: const TextStyle(
+                              color: AppColors.textBody, fontSize: 11)),
                       if (isRecommended) ...[
                         const SizedBox(height: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: .2),
+                            color: AppColors.softGray,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('✓ Ideal capacity for your calculated length', style: TextStyle(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.w700)),
+                          child: const Text(
+                              '✓ Ideal capacity for your calculated length',
+                              style: TextStyle(
+                                  color: AppColors.goldDark,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ],
@@ -547,18 +648,25 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.navyDark,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.navyLight),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.verified_outlined, color: AppColors.success, size: 18),
+                    const Icon(Icons.verified_outlined,
+                        color: AppColors.gold, size: 18),
                     const SizedBox(width: 8),
-                    Text('Datasheet: ${_selectedProduct.name}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                    Expanded(
+                      child: Text('Datasheet: ${_selectedProduct.name}',
+                          style: const TextStyle(
+                              color: AppColors.navy,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -568,14 +676,26 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('• ', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
-                        Expanded(child: Text(s, style: const TextStyle(color: AppColors.textLight, fontSize: 11, height: 1.3))),
+                        const Text('• ',
+                            style: TextStyle(
+                                color: AppColors.gold,
+                                fontWeight: FontWeight.bold)),
+                        Expanded(
+                            child: Text(s,
+                                style: const TextStyle(
+                                    color: AppColors.textBody,
+                                    fontSize: 11,
+                                    height: 1.3))),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text('Best Applications: ${_selectedProduct.bestFor}', style: const TextStyle(color: AppColors.info, fontSize: 11, fontStyle: FontStyle.italic)),
+                Text('Best Applications: ${_selectedProduct.bestFor}',
+                    style: const TextStyle(
+                        color: AppColors.navy,
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic)),
               ],
             ),
           ),
@@ -585,46 +705,83 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.navyDark,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.navyLight),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Order Configuration', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                const Text('Order Configuration',
+                    style: TextStyle(
+                        color: AppColors.navy,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    const Text('Quantity Units', style: TextStyle(color: AppColors.textLight, fontSize: 13)),
+                    const Text('Quantity Units',
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 13)),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline, color: AppColors.textLight),
-                      onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: AppColors.textSecondary),
+                      onPressed: _quantity > 1
+                          ? () => setState(() => _quantity--)
+                          : null,
                     ),
-                    Text('$_quantity', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                    Text('$_quantity',
+                        style: const TextStyle(
+                            color: AppColors.navy,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16)),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline, color: AppColors.gold),
+                      icon: const Icon(Icons.add_circle_outline,
+                          color: AppColors.gold),
                       onPressed: () => setState(() => _quantity++),
                     ),
                   ],
                 ),
-                const Divider(color: AppColors.navyLight, height: 20),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.gold,
-                  title: const Text('Include IP68 Quick-Connect Terminal Kit', style: TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Pack of 5 waterproof screw-lock male/female pigtails (+₹380)', style: TextStyle(color: AppColors.textLight, fontSize: 10)),
-                  value: _includeQuickConnectors,
-                  onChanged: (v) => setState(() => _includeQuickConnectors = v ?? false),
+                const Divider(color: AppColors.cardBorder, height: 20),
+                Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppColors.gold,
+                    title: const Text('Include IP68 Quick-Connect Terminal Kit',
+                        style: TextStyle(
+                            color: AppColors.navy,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                        'Pack of 5 waterproof screw-lock male/female pigtails (+₹380)',
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 10)),
+                    value: _includeQuickConnectors,
+                    onChanged: (v) =>
+                        setState(() => _includeQuickConnectors = v ?? false),
+                  ),
                 ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.gold,
-                  title: const Text('Include Aluminium Mounting Clamps & Screws', style: TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Wall standoffs & anti-vibration silicon pads (+₹150)', style: TextStyle(color: AppColors.textLight, fontSize: 10)),
-                  value: _includeMountingClips,
-                  onChanged: (v) => setState(() => _includeMountingClips = v ?? false),
+                Material(
+                  color: Colors.transparent,
+                  child: CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppColors.gold,
+                    title: const Text(
+                        'Include Aluminium Mounting Clamps & Screws',
+                        style: TextStyle(
+                            color: AppColors.navy,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                        'Wall standoffs & anti-vibration silicon pads (+₹150)',
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 10)),
+                    value: _includeMountingClips,
+                    onChanged: (v) =>
+                        setState(() => _includeMountingClips = v ?? false),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 AddressAutocompleteField(
@@ -646,36 +803,78 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.navyMid,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.gold.withValues(alpha: .4)),
+              border: Border.all(color: AppColors.cardBorder),
             ),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total Estimated Price:', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 14)),
-                    Text('₹${_subtotal.round()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900, fontSize: 20)),
+                    const Expanded(
+                      child: Text('Total Estimated Price:',
+                          style: TextStyle(
+                              color: AppColors.navy,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14)),
+                    ),
+                    Text('₹${_subtotal.round()}',
+                        style: const TextStyle(
+                            color: AppColors.goldDark,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 20)),
                   ],
                 ),
                 const SizedBox(height: 6),
                 const Row(
                   children: [
-                    Icon(Icons.check_circle_outline, color: AppColors.success, size: 14),
+                    Icon(Icons.check_circle_outline,
+                        color: AppColors.goldDark, size: 14),
                     SizedBox(width: 6),
-                    Text('Eligible for ₹200 Cashback credited upon payment', style: TextStyle(color: AppColors.success, fontSize: 11)),
+                    Expanded(
+                      child: Text(
+                          'Eligible for ₹200 Cashback credited upon payment',
+                          style: TextStyle(
+                              color: AppColors.goldDark, fontSize: 11)),
+                    ),
                   ],
                 ),
+                if (_minimumOrderShortfall > 0) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Minimum order ${money(2500)}. Add ${money(_minimumOrderShortfall.ceil())} more.',
+                      style: const TextStyle(
+                        color: AppColors.danger,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _submitting ? null : _proceedToCheckout,
+                    onPressed: _submitting || _minimumOrderShortfall > 0
+                        ? null
+                        : _proceedToCheckout,
                     icon: _submitting
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.navyDeep))
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.navy))
                         : const Icon(Icons.shopping_bag_outlined),
-                    label: Text(_submitting ? 'Submitting Order...' : 'Order Power Supply (₹${_subtotal.round()})'),
+                    label: Text(
+                      _submitting
+                          ? 'Submitting Order...'
+                          : _minimumOrderShortfall > 0
+                              ? 'Minimum order ${money(2500)}'
+                              : 'Order Power Supply (${money(_subtotal)})',
+                    ),
                   ),
                 ),
               ],
@@ -691,10 +890,12 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .15),
+        color: AppColors.softGray,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(label, style: TextStyle(color: color, fontSize: 9.5, fontWeight: FontWeight.w700)),
+      child: Text(label,
+          style: TextStyle(
+              color: color, fontSize: 9.5, fontWeight: FontWeight.w700)),
     );
   }
 }

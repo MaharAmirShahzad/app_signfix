@@ -212,8 +212,8 @@ class _AiChatState extends State<AiChat> {
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: const BoxDecoration(
-          color: AppColors.navyDark,
-          border: Border(bottom: BorderSide(color: AppColors.navyLight)),
+          color: AppColors.white,
+          border: Border(bottom: BorderSide(color: AppColors.cardBorder)),
         ),
         child: Row(children: [
           // History button
@@ -222,9 +222,9 @@ class _AiChatState extends State<AiChat> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.navyMid,
+                color: AppColors.softGray,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.navyLight),
+                border: Border.all(color: AppColors.inputBorder),
               ),
               child: const Icon(Icons.history_rounded,
                   color: AppColors.gold, size: 18),
@@ -238,7 +238,7 @@ class _AiChatState extends State<AiChat> {
                   children: [
                 const Text('SignFix AI Assistant',
                     style: TextStyle(
-                        color: AppColors.white,
+                        color: AppColors.navy,
                         fontWeight: FontWeight.w800,
                         fontSize: 14)),
                 Text(
@@ -278,7 +278,7 @@ class _AiChatState extends State<AiChat> {
       // Messages
       Expanded(
         child: Container(
-          color: AppColors.navyDeep,
+          color: AppColors.softGray,
           child: msgs.isEmpty
               ? const Center(
                   child: Text('Start a conversation',
@@ -295,7 +295,7 @@ class _AiChatState extends State<AiChat> {
       // Suggestions (only first message + idle)
       if (msgs.length == 1 && !_sending)
         Container(
-          color: AppColors.navyDeep,
+          color: AppColors.softGray,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -312,14 +312,14 @@ class _AiChatState extends State<AiChat> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
-                              color: AppColors.navyMid,
+                              color: AppColors.white,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                   color: AppColors.gold.withValues(alpha: .3)),
                             ),
                             child: Text(s,
                                 style: const TextStyle(
-                                    color: AppColors.white,
+                                    color: AppColors.charcoal,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600)),
                           ),
@@ -333,13 +333,13 @@ class _AiChatState extends State<AiChat> {
       // Typing indicator
       if (_sending)
         Container(
-          color: AppColors.navyDeep,
+          color: AppColors.softGray,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
           child: Row(children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: AppColors.navyMid,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(12)),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 SizedBox(
@@ -367,19 +367,19 @@ class _AiChatState extends State<AiChat> {
                 onSubmitted: (_) => _send(),
                 textInputAction: TextInputAction.send,
                 maxLines: 1,
-                style: const TextStyle(color: AppColors.white, fontSize: 14),
+                style: const TextStyle(color: AppColors.charcoal, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Ask about signs, pricing, service…',
                   hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                   filled: true,
-                  fillColor: AppColors.navyMid,
+                  fillColor: AppColors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.navyLight),
+                    borderSide: const BorderSide(color: AppColors.inputBorder),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
-                    borderSide: const BorderSide(color: AppColors.navyLight),
+                    borderSide: const BorderSide(color: AppColors.inputBorder),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
@@ -403,7 +403,7 @@ class _AiChatState extends State<AiChat> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                  color: _sending ? AppColors.navyMid : null,
+                  color: _sending ? AppColors.softGray : null,
                   shape: BoxShape.circle,
                   boxShadow: _sending
                       ? []
@@ -463,7 +463,7 @@ class _AiChatState extends State<AiChat> {
                             end: Alignment.bottomRight,
                           )
                         : null,
-                    color: isMe ? null : AppColors.navyMid,
+                    color: isMe ? null : AppColors.white,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(18),
                       topRight: const Radius.circular(18),
@@ -471,12 +471,12 @@ class _AiChatState extends State<AiChat> {
                       bottomRight: Radius.circular(isMe ? 4 : 18),
                     ),
                     border:
-                        isMe ? null : Border.all(color: AppColors.navyLight),
+                        isMe ? null : Border.all(color: AppColors.cardBorder),
                   ),
                   child: Text(
                     m['text'] ?? '',
                     style: TextStyle(
-                      color: isMe ? AppColors.navyDeep : AppColors.white,
+                      color: isMe ? AppColors.navyDeep : AppColors.charcoal,
                       height: 1.45,
                       fontSize: 14,
                     ),
@@ -498,12 +498,12 @@ class _AiChatState extends State<AiChat> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: AppColors.navyMid,
+                color: AppColors.softGray,
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.gold.withValues(alpha: .3)),
               ),
               child: const Icon(Icons.person_rounded,
-                  color: AppColors.textLight, size: 14),
+                  color: AppColors.navy, size: 14),
             ),
           ],
         ],
@@ -516,7 +516,7 @@ class _AiChatState extends State<AiChat> {
         // Header
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          color: AppColors.navyDark,
+          color: AppColors.white,
           child: Row(children: [
             IconButton(
               icon: const Icon(Icons.arrow_back_ios_rounded,
@@ -526,7 +526,7 @@ class _AiChatState extends State<AiChat> {
             const Expanded(
               child: Text('Chat History',
                   style: TextStyle(
-                      color: AppColors.white,
+                      color: AppColors.navy,
                       fontWeight: FontWeight.w800,
                       fontSize: 16)),
             ),
@@ -558,7 +558,7 @@ class _AiChatState extends State<AiChat> {
         // List
         Expanded(
           child: Container(
-            color: AppColors.navyDeep,
+            color: AppColors.softGray,
             child: _conversations.isEmpty
                 ? const Center(
                     child: Text('No chat history yet.',
@@ -597,13 +597,13 @@ class _AiChatState extends State<AiChat> {
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: isActive
-                                  ? AppColors.navyMid
-                                  : AppColors.navyDark,
+                                  ? AppColors.softGray
+                                  : AppColors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isActive
                                     ? AppColors.gold.withValues(alpha: .4)
-                                    : AppColors.navyLight,
+                                    : AppColors.cardBorder,
                                 width: isActive ? 1.5 : 1,
                               ),
                             ),
@@ -613,7 +613,7 @@ class _AiChatState extends State<AiChat> {
                                 decoration: BoxDecoration(
                                   color: isActive
                                       ? AppColors.gold.withValues(alpha: .15)
-                                      : AppColors.navyMid,
+                                      : AppColors.softGray,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(Icons.chat_bubble_outline_rounded,
@@ -632,7 +632,7 @@ class _AiChatState extends State<AiChat> {
                                       c['title']?.toString() ?? 'Chat',
                                       style: TextStyle(
                                         color: isActive
-                                            ? AppColors.white
+                                            ? AppColors.navy
                                             : AppColors.textLight,
                                         fontWeight: isActive
                                             ? FontWeight.w700

@@ -5,6 +5,7 @@ import '../../services/api_client.dart';
 import '../../widgets/common.dart';
 import '../payment/payment_screen.dart';
 import '../orders/order_detail_screen.dart';
+import 'quotation_detail_screen.dart';
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({
@@ -109,24 +110,32 @@ class _ActivityScreenState extends State<ActivityScreen>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
-          backgroundColor: AppColors.navyDark,
+          backgroundColor: AppColors.appBar,
+          foregroundColor: AppColors.navy,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
           title: const Text('My Activity',
               style: TextStyle(
-                  color: AppColors.white, fontWeight: FontWeight.w800)),
+                  color: AppColors.navy, fontWeight: FontWeight.w800)),
           automaticallyImplyLeading: false,
         ),
         body: Column(
           children: [
-            // Tab bar — dark theme
+            // Tab bar — light workbook surface
             Container(
-              color: AppColors.navyDark,
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  bottom: BorderSide(color: AppColors.cardBorder),
+                ),
+              ),
               child: TabBar(
                 controller: _tab,
-                labelColor: AppColors.gold,
-                unselectedLabelColor: AppColors.textMuted,
-                indicatorColor: AppColors.gold,
+                labelColor: AppColors.goldDark,
+                unselectedLabelColor: AppColors.midGray,
+                indicatorColor: AppColors.goldDark,
                 indicatorWeight: 2.5,
                 tabs: const [
                   Tab(text: 'My Orders'),
@@ -184,7 +193,7 @@ class _ActivityScreenState extends State<ActivityScreen>
                                   ? 'Session Expired'
                                   : 'Could Not Load Activity',
                               style: const TextStyle(
-                                  color: AppColors.white,
+                                  color: AppColors.navy,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800)),
                           const SizedBox(height: 8),
@@ -257,18 +266,6 @@ class _QuotationsList extends StatelessWidget {
   final ApiClient api;
   final Future<void> Function() onRefresh;
 
-  Future<void> _approve(
-    BuildContext context,
-    Map<String, dynamic> quotation,
-  ) async {
-    try {
-      await api.approveQuotation(quotation['quotationNo'].toString());
-      await onRefresh();
-    } catch (error) {
-      if (context.mounted) showAppError(context, error);
-    }
-  }
-
   Future<void> _pay(
     BuildContext context,
     Map<String, dynamic> quotation,
@@ -313,7 +310,7 @@ class _QuotationsList extends StatelessWidget {
     }
     return RefreshIndicator(
       color: AppColors.gold,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       onRefresh: onRefresh,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -357,124 +354,137 @@ class _QuotationsList extends StatelessWidget {
             'sent' || 'viewed' => AppColors.warning,
             _ => AppColors.textMuted,
           };
-          return Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.navyDark,
+          return InkWell(
+              onTap: () async {
+                await Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => QuotationDetailScreen(
+                      api: api,
+                      quotationNo: quotation['quotationNo'].toString(),
+                    ),
+                  ),
+                );
+                await onRefresh();
+              },
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.navyLight),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.receipt_long_outlined,
-                        color: AppColors.gold, size: 20),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            quotation['quotationNo']?.toString() ?? '',
-                            style: const TextStyle(
-                              color: AppColors.gold,
-                              fontWeight: FontWeight.w800,
-                            ),
+                    Row(
+                      children: [
+                        const Icon(Icons.receipt_long_outlined,
+                            color: AppColors.gold, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                quotation['quotationNo']?.toString() ?? '',
+                                style: const TextStyle(
+                                  color: AppColors.gold,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                'Order ${quotation['orderNo'] ?? ''}',
+                                style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'Order ${quotation['orderNo'] ?? ''}',
-                            style: const TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        _Badge(humanize(status), color),
+                      ],
                     ),
-                    _Badge(humanize(status), color),
+                    const Divider(height: 22, color: AppColors.cardBorder),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Final quotation amount',
+                            style: TextStyle(color: AppColors.textLight),
+                          ),
+                        ),
+                        Text(
+                          money(quotation['finalAmount']),
+                          style: const TextStyle(
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 17,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (quotation['validUntil'] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 7),
+                        child: Text(
+                          'Valid until ${quotation['validUntil']}',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    if (actions.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: Text('Tap to review quotation actions',
+                            style: TextStyle(
+                                color: AppColors.goldDark,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    if (status == 'approved' && payment['enabled'] == true) ...[
+                      const SizedBox(height: 12),
+                      if (pendingPayment)
+                        const Text(
+                          'A payment is processing. Refresh this screen to check its status before paying again.',
+                          style: TextStyle(
+                            color: AppColors.warning,
+                            fontSize: 12,
+                          ),
+                        ),
+                      if (!pendingPayment &&
+                          options.contains('advance') &&
+                          advanceDue > 0)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                _pay(context, quotation, 'advance'),
+                            icon: const Icon(Icons.payments_outlined),
+                            label: Text('Pay advance (${money(advanceDue)})'),
+                          ),
+                        ),
+                      if (!pendingPayment &&
+                          options.contains('full') &&
+                          remaining > 0) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () => _pay(context, quotation, 'full'),
+                            icon: const Icon(Icons.lock_outline),
+                            label: Text('Pay balance (${money(remaining)})'),
+                          ),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
-                const Divider(height: 22, color: AppColors.navyLight),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Final quotation amount',
-                        style: TextStyle(color: AppColors.textLight),
-                      ),
-                    ),
-                    Text(
-                      money(quotation['finalAmount']),
-                      style: const TextStyle(
-                        color: AppColors.gold,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 17,
-                      ),
-                    ),
-                  ],
-                ),
-                if (quotation['validUntil'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 7),
-                    child: Text(
-                      'Valid until ${quotation['validUntil']}',
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                if (actions.contains('approve')) ...[
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => _approve(context, quotation),
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Approve final quotation'),
-                    ),
-                  ),
-                ],
-                if (status == 'approved' && payment['enabled'] == true) ...[
-                  const SizedBox(height: 12),
-                  if (pendingPayment)
-                    const Text(
-                      'A payment is processing. Refresh this screen to check its status before paying again.',
-                      style: TextStyle(
-                        color: AppColors.warning,
-                        fontSize: 12,
-                      ),
-                    ),
-                  if (!pendingPayment &&
-                      options.contains('advance') &&
-                      advanceDue > 0)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pay(context, quotation, 'advance'),
-                        icon: const Icon(Icons.payments_outlined),
-                        label: Text('Pay advance (${money(advanceDue)})'),
-                      ),
-                    ),
-                  if (!pendingPayment &&
-                      options.contains('full') &&
-                      remaining > 0) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => _pay(context, quotation, 'full'),
-                        icon: const Icon(Icons.lock_outline),
-                        label: Text('Pay balance (${money(remaining)})'),
-                      ),
-                    ),
-                  ],
-                ],
-              ],
-            ),
-          );
+              ));
         },
       ),
     );
@@ -504,7 +514,7 @@ class _OrdersList extends StatelessWidget {
     }
     return RefreshIndicator(
       color: AppColors.gold,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       onRefresh: onRefresh, // ✅ already async Future<void>
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -538,9 +548,9 @@ class _OrderCard extends StatelessWidget {
     final status = o['status']?.toString() ?? 'pending';
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.navyDark,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.navyLight),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -577,11 +587,11 @@ class _OrderCard extends StatelessWidget {
                     Text(o['product']?.toString() ?? 'Sign Board',
                         style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: AppColors.white)),
+                            color: AppColors.charcoal)),
                   ])),
               _Badge(humanize(status), color),
             ]),
-            const Divider(height: 18, color: AppColors.navyLight),
+            const Divider(height: 18, color: AppColors.cardBorder),
             Row(children: [
               _Detail(Icons.straighten,
                   '${o['length'] ?? 0}×${o['width'] ?? 0} ft'),
@@ -629,7 +639,7 @@ class _ServicesList extends StatelessWidget {
     }
     return RefreshIndicator(
       color: AppColors.gold,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       onRefresh: onRefresh, // ✅ already async Future<void>
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -655,7 +665,7 @@ class _ServicesList extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => DraggableScrollableSheet(
@@ -671,7 +681,7 @@ class _ServicesList extends StatelessWidget {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                        color: AppColors.navyLight,
+                        color: AppColors.cardBorder,
                         borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
             Text(s['id']?.toString() ?? '',
@@ -684,14 +694,14 @@ class _ServicesList extends StatelessWidget {
                 style: const TextStyle(color: AppColors.textLight)),
             const SizedBox(height: 14),
             Text(s['description']?.toString() ?? '',
-                style: const TextStyle(color: AppColors.white, height: 1.5)),
+                style: const TextStyle(color: AppColors.charcoal, height: 1.5)),
             if ((s['statusHistory'] as List? ?? []).isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text('Status History',
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
-                      color: AppColors.white)),
+                      color: AppColors.navy)),
               const SizedBox(height: 10),
               ...(s['statusHistory'] as List).map((h) {
                 final m = h as Map<String, dynamic>;
@@ -704,7 +714,7 @@ class _ServicesList extends StatelessWidget {
                         child: Text(humanize(m['status'] ?? ''),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.white))),
+                                color: AppColors.charcoal))),
                     Text(m['time'] ?? '',
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.textMuted)),
@@ -735,9 +745,9 @@ class _ServiceCard extends StatelessWidget {
     final status = s['status']?.toString() ?? 'pending';
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.navyDark,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.navyLight),
+        border: Border.all(color: AppColors.cardBorder),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -769,7 +779,7 @@ class _ServiceCard extends StatelessWidget {
                     Text(s['category']?.toString() ?? 'Service',
                         style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: AppColors.white)),
+                            color: AppColors.charcoal)),
                   ])),
               if (priority == 'emergency' || priority == 'high')
                 Padding(
@@ -778,7 +788,7 @@ class _ServiceCard extends StatelessWidget {
                 ),
               _Badge(humanize(status), color),
             ]),
-            const Divider(height: 18, color: AppColors.navyLight),
+            const Divider(height: 18, color: AppColors.cardBorder),
             Text(s['description']?.toString() ?? '',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../core/app_theme.dart';
 import '../services/api_client.dart';
 
@@ -49,7 +50,9 @@ class StructuredAddress {
     }
     if (landmark.isNotEmpty) parts.add('Near $landmark');
     if (city.isNotEmpty && !parts.contains(city)) parts.add(city);
+    if (state.isNotEmpty && !parts.contains(state)) parts.add(state);
     if (pincode.isNotEmpty && !parts.contains(pincode)) parts.add(pincode);
+    if (country.isNotEmpty && !parts.contains(country)) parts.add(country);
 
     return parts.isNotEmpty ? parts.join(', ') : formattedAddress;
   }
@@ -110,12 +113,15 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   final _instructionsCtrl = TextEditingController();
 
   final _focusNode = FocusNode();
+  final GlobalKey _fieldKey = GlobalKey();
   final LayerLink _layerLink = LayerLink();
 
   Timer? _debounce;
   bool _isLoading = false;
+  bool _isLocating = false;
   String? _errorMessage;
   List<Map<String, dynamic>> _suggestions = [];
+  int _searchGeneration = 0;
   bool _showOverlay = false;
   OverlayEntry? _overlayEntry;
 
@@ -168,24 +174,31 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
   void _onSearchChanged(String value) {
     _debounce?.cancel();
+    final generation = ++_searchGeneration;
     final trimmed = value.trim();
 
     _currentAddress.formattedAddress = trimmed;
     _currentAddress.addressLine = trimmed;
     _notifyAddressChanged();
+    setState(() {
+      _isLoading = false;
+      _errorMessage = null;
+      _suggestions = [];
+    });
 
-    if (trimmed.length < 3) {
+    if (trimmed.length < 2) {
       _hideSuggestions();
       return;
     }
 
     _debounce = Timer(const Duration(milliseconds: 400), () {
-      _fetchSuggestions(trimmed);
+      _fetchSuggestions(trimmed, generation);
     });
   }
 
-  Future<void> _fetchSuggestions(String query) async {
+  Future<void> _fetchSuggestions(String query, [int? generation]) async {
     if (!mounted) return;
+    final requestGeneration = generation ?? ++_searchGeneration;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -194,7 +207,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
     try {
       final results = await widget.api.autocompleteLocation(query);
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _searchGeneration) return;
 
       setState(() {
         _suggestions = results;
@@ -202,16 +215,100 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
       });
       _updateOverlay();
     } catch (err) {
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _searchGeneration) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Could not load address suggestions. Tap to retry.';
+        _errorMessage = err is ApiException
+            ? 'Could not load suggestions: ${err.message} Tap to retry.'
+            : 'Could not load address suggestions. Check your connection and tap to retry.';
       });
       _updateOverlay();
     }
   }
 
+  Future<void> _useCurrentLocation() async {
+    if (_isLocating) return;
+    _debounce?.cancel();
+    ++_searchGeneration;
+    _hideSuggestions();
+    setState(() {
+      _isLoading = false;
+      _isLocating = true;
+      _errorMessage = null;
+    });
+
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw const ApiException('Turn on location services and try again.');
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        throw const ApiException(
+          'Location permission is required to use your current location.',
+        );
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      final details = await widget.api.reverseLocation(
+        position.latitude,
+        position.longitude,
+      );
+      if (!mounted) return;
+
+      final formattedAddress =
+          details['formattedAddress']?.toString().trim() ?? '';
+      final addressLine = details['addressLine']?.toString().trim() ?? '';
+      if (formattedAddress.isEmpty && addressLine.isEmpty) {
+        throw const ApiException(
+          'Could not identify an address at your current location. You can enter it manually.',
+        );
+      }
+
+      _searchCtrl.text =
+          formattedAddress.isNotEmpty ? formattedAddress : addressLine;
+      _currentAddress
+        ..formattedAddress = _searchCtrl.text
+        ..addressLine = addressLine.isNotEmpty ? addressLine : _searchCtrl.text
+        ..city = details['city']?.toString() ?? ''
+        ..state = details['state']?.toString() ?? ''
+        ..pincode = details['pincode']?.toString() ?? ''
+        ..country = details['country']?.toString() ?? ''
+        ..latitude = position.latitude
+        ..longitude = position.longitude
+        ..placeId = details['placeId']?.toString();
+
+      _hideSuggestions();
+      setState(() {});
+      _notifyAddressChanged();
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is ApiException
+          ? error.message
+          : 'Could not get your current location. Check location permission and try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
   Future<void> _selectSuggestion(Map<String, dynamic> item) async {
+    final selectionGeneration = ++_searchGeneration;
     _hideSuggestions();
     final placeId = item['placeId']?.toString() ?? '';
     final provider = item['provider']?.toString();
@@ -225,10 +322,10 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     setState(() => _isLoading = true);
     try {
       if (placeId.isNotEmpty) {
-        final details = await widget.api.getLocationDetails(
-          placeId,
-          provider: provider,
-        );
+        final details = provider == 'osm'
+            ? item
+            : await widget.api.getLocationDetails(placeId, provider: provider);
+        if (!mounted || selectionGeneration != _searchGeneration) return;
 
         if (details.isNotEmpty) {
           _currentAddress.formattedAddress =
@@ -249,14 +346,27 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
         }
       }
     } catch (_) {
-      // Keep basic formatted address on lookup failure
+      if (mounted && selectionGeneration == _searchGeneration) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'The location was selected, but its full address details could not be loaded.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
-      _notifyAddressChanged();
+      if (mounted && selectionGeneration == _searchGeneration) {
+        setState(() => _isLoading = false);
+        _notifyAddressChanged();
+      }
     }
   }
 
   void _selectSavedAddress(Map<String, dynamic> addr) {
+    _debounce?.cancel();
+    ++_searchGeneration;
     final addrLine = addr['addressLine']?.toString() ??
         addr['address_line']?.toString() ??
         '';
@@ -284,7 +394,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     if (lon != null) _currentAddress.longitude = (lon as num).toDouble();
 
     _hideSuggestions();
-    setState(() {});
+    setState(() => _isLoading = false);
     _notifyAddressChanged();
   }
 
@@ -322,32 +432,49 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   }
 
   OverlayEntry _createOverlayEntry() {
-    final renderBox = context.findRenderObject() as RenderBox?;
+    final renderBox =
+        _fieldKey.currentContext?.findRenderObject() as RenderBox?;
     final size = renderBox?.size ?? Size.zero;
+    final anchorTop = renderBox?.localToGlobal(Offset.zero).dy ?? 0;
 
     return OverlayEntry(
-      builder: (ctx) => Positioned(
-        width: size.width,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: Offset(0, size.height + 4),
-          child: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(12),
-            color: AppColors.navyCard,
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 260),
-              decoration: BoxDecoration(
-                color: AppColors.navyCard,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+      builder: (ctx) {
+        final media = MediaQuery.of(ctx);
+        final availableBelow = media.size.height -
+            media.viewInsets.bottom -
+            anchorTop -
+            size.height -
+            12;
+        final availableAbove = anchorTop - media.padding.top - 12;
+        final showAbove =
+            availableBelow < 160 && availableAbove > availableBelow;
+        final availableHeight = showAbove ? availableAbove : availableBelow;
+        final maxHeight = availableHeight.clamp(80.0, 260.0);
+
+        return Positioned(
+          width: size.width,
+          child: CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            offset: Offset(0, showAbove ? -maxHeight - 4 : size.height + 4),
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.cardBg,
+              child: Container(
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border:
+                      Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                ),
+                child: _buildOverlayContent(),
               ),
-              child: _buildOverlayContent(),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -366,7 +493,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
             ),
             SizedBox(width: 12),
             Text('Searching live address suggestions...',
-                style: TextStyle(color: AppColors.white70, fontSize: 13)),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
           ],
         ),
       );
@@ -384,8 +511,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
               Expanded(
                 child: Text(
                   _errorMessage!,
-                  style:
-                      const TextStyle(color: AppColors.goldLight, fontSize: 13),
+                  style: const TextStyle(color: AppColors.danger, fontSize: 13),
                 ),
               ),
             ],
@@ -399,7 +525,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
         padding: EdgeInsets.all(16),
         child: Text(
           'No matching location found. You can enter address manually.',
-          style: TextStyle(color: AppColors.white54, fontSize: 13),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
       );
     }
@@ -409,33 +535,36 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
       shrinkWrap: true,
       itemCount: _suggestions.length,
       separatorBuilder: (_, __) =>
-          Divider(color: AppColors.navyLight.withValues(alpha: 0.5), height: 1),
+          const Divider(color: AppColors.cardBorder, height: 1),
       itemBuilder: (ctx, idx) {
         final item = _suggestions[idx];
         final main = item['mainText']?.toString() ?? '';
         final secondary = item['secondaryText']?.toString() ?? '';
 
-        return ListTile(
-          dense: true,
-          leading: const Icon(Icons.location_on_outlined,
-              color: AppColors.gold, size: 20),
-          title: Text(
-            main,
-            style: const TextStyle(
-                color: AppColors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14),
+        return Material(
+          color: AppColors.cardBg,
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.location_on_outlined,
+                color: AppColors.gold, size: 20),
+            title: Text(
+              main,
+              style: const TextStyle(
+                  color: AppColors.textBody,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14),
+            ),
+            subtitle: secondary.isNotEmpty
+                ? Text(
+                    secondary,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : null,
+            onTap: () => _selectSuggestion(item),
           ),
-          subtitle: secondary.isNotEmpty
-              ? Text(
-                  secondary,
-                  style:
-                      const TextStyle(color: AppColors.white54, fontSize: 12),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                )
-              : null,
-          onTap: () => _selectSuggestion(item),
         );
       },
     );
@@ -455,7 +584,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
               Text(
                 'Saved Addresses:',
                 style: TextStyle(
-                    color: AppColors.gold,
+                    color: AppColors.navy,
                     fontSize: 12,
                     fontWeight: FontWeight.w600),
               ),
@@ -478,23 +607,21 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                               ? Icons.storefront_outlined
                               : Icons.business_outlined,
                       size: 16,
-                      color: isDefault ? AppColors.navyDeep : AppColors.gold,
+                      color: isDefault ? AppColors.navy : AppColors.gold,
                     ),
                     label: Text(label),
                     backgroundColor:
-                        isDefault ? AppColors.gold : AppColors.navyCard,
+                        isDefault ? AppColors.gold : AppColors.cardBg,
                     labelStyle: TextStyle(
-                      color: isDefault ? AppColors.navyDeep : AppColors.white,
+                      color: AppColors.navy,
                       fontSize: 12,
-                      fontWeight:
-                          isDefault ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isDefault ? FontWeight.w700 : FontWeight.w500,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
-                        color: isDefault
-                            ? AppColors.gold
-                            : AppColors.navyLight,
+                        color:
+                            isDefault ? AppColors.gold : AppColors.cardBorder,
                       ),
                     ),
                     onPressed: () => _selectSavedAddress(addr),
@@ -508,11 +635,12 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
         // ── Main Search Field ──────────────────────────────────────────────
         CompositedTransformTarget(
+          key: _fieldKey,
           link: _layerLink,
           child: TextFormField(
             controller: _searchCtrl,
             focusNode: _focusNode,
-            style: const TextStyle(color: AppColors.white, fontSize: 14),
+            style: const TextStyle(color: AppColors.textBody, fontSize: 14),
             onChanged: _onSearchChanged,
             validator: widget.isRequired
                 ? (v) => (v == null || v.trim().isEmpty)
@@ -521,17 +649,17 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                 : null,
             decoration: InputDecoration(
               labelText: widget.labelText,
-              labelStyle: const TextStyle(color: AppColors.gold, fontSize: 13),
+              labelStyle: const TextStyle(color: AppColors.navy, fontSize: 13),
               hintText: widget.hintText,
-              hintStyle:
-                  const TextStyle(color: AppColors.white54, fontSize: 13),
+              hintStyle: const TextStyle(
+                  color: AppColors.textPlaceholder, fontSize: 13),
               filled: true,
-              fillColor: AppColors.navyCard,
+              fillColor: AppColors.cardBg,
               prefixIcon: const Icon(Icons.search, color: AppColors.gold),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_isLoading)
+                  if (_isLocating || _isLoading)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 10),
                       child: SizedBox(
@@ -541,10 +669,17 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                             strokeWidth: 2, color: AppColors.gold),
                       ),
                     ),
+                  if (!_isLocating)
+                    IconButton(
+                      tooltip: 'Use current location',
+                      icon: const Icon(Icons.my_location,
+                          color: AppColors.gold, size: 19),
+                      onPressed: _useCurrentLocation,
+                    ),
                   if (_searchCtrl.text.isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.clear,
-                          color: AppColors.white54, size: 18),
+                          color: AppColors.midGray, size: 18),
                       onPressed: () {
                         _searchCtrl.clear();
                         _onSearchChanged('');
@@ -554,11 +689,11 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.navyLight),
+                borderSide: const BorderSide(color: AppColors.inputBorder),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.navyLight),
+                borderSide: const BorderSide(color: AppColors.inputBorder),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -584,14 +719,19 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                   color: AppColors.gold,
                   size: 20,
                 ),
-                Text(
-                  _extraDetailsExpanded
-                      ? 'Hide extra delivery details'
-                      : 'Add Shop/Building #, Landmark or instructions (optional)',
-                  style: const TextStyle(
-                      color: AppColors.goldLight,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500),
+                const SizedBox(width: 2),
+                Expanded(
+                  child: Text(
+                    _extraDetailsExpanded
+                        ? 'Hide extra delivery details'
+                        : 'Add Shop/Building #, Landmark or instructions (optional)',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: AppColors.textLink,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500),
+                  ),
                 ),
               ],
             ),
@@ -603,18 +743,19 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                 Expanded(
                   child: TextFormField(
                     controller: _buildingCtrl,
-                    style: const TextStyle(color: AppColors.white, fontSize: 13),
+                    style: const TextStyle(
+                        color: AppColors.textBody, fontSize: 13),
                     onChanged: (_) => _notifyAddressChanged(),
                     decoration: InputDecoration(
                       labelText: 'Shop / House / Building #',
                       labelStyle:
-                          const TextStyle(color: AppColors.white70, fontSize: 12),
+                          const TextStyle(color: AppColors.navy, fontSize: 12),
                       filled: true,
-                      fillColor: AppColors.navyCard,
+                      fillColor: AppColors.cardBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide:
-                            const BorderSide(color: AppColors.navyLight),
+                            const BorderSide(color: AppColors.inputBorder),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
@@ -625,18 +766,19 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                 Expanded(
                   child: TextFormField(
                     controller: _floorCtrl,
-                    style: const TextStyle(color: AppColors.white, fontSize: 13),
+                    style: const TextStyle(
+                        color: AppColors.textBody, fontSize: 13),
                     onChanged: (_) => _notifyAddressChanged(),
                     decoration: InputDecoration(
                       labelText: 'Floor / Unit',
                       labelStyle:
-                          const TextStyle(color: AppColors.white70, fontSize: 12),
+                          const TextStyle(color: AppColors.navy, fontSize: 12),
                       filled: true,
-                      fillColor: AppColors.navyCard,
+                      fillColor: AppColors.cardBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide:
-                            const BorderSide(color: AppColors.navyLight),
+                            const BorderSide(color: AppColors.inputBorder),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
@@ -648,17 +790,17 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _landmarkCtrl,
-              style: const TextStyle(color: AppColors.white, fontSize: 13),
+              style: const TextStyle(color: AppColors.textBody, fontSize: 13),
               onChanged: (_) => _notifyAddressChanged(),
               decoration: InputDecoration(
                 labelText: 'Nearby Landmark',
                 labelStyle:
-                    const TextStyle(color: AppColors.white70, fontSize: 12),
+                    const TextStyle(color: AppColors.navy, fontSize: 12),
                 filled: true,
-                fillColor: AppColors.navyCard,
+                fillColor: AppColors.cardBg,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.navyLight),
+                  borderSide: const BorderSide(color: AppColors.inputBorder),
                 ),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -667,17 +809,17 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _instructionsCtrl,
-              style: const TextStyle(color: AppColors.white, fontSize: 13),
+              style: const TextStyle(color: AppColors.textBody, fontSize: 13),
               onChanged: (_) => _notifyAddressChanged(),
               decoration: InputDecoration(
                 labelText: 'Delivery Instructions (optional)',
                 labelStyle:
-                    const TextStyle(color: AppColors.white70, fontSize: 12),
+                    const TextStyle(color: AppColors.navy, fontSize: 12),
                 filled: true,
-                fillColor: AppColors.navyCard,
+                fillColor: AppColors.cardBg,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.navyLight),
+                  borderSide: const BorderSide(color: AppColors.inputBorder),
                 ),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -698,7 +840,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                 activeColor: AppColors.gold,
                 title: const Text(
                   'Save this delivery address to my profile',
-                  style: TextStyle(color: AppColors.white70, fontSize: 13),
+                  style: TextStyle(color: AppColors.textBody, fontSize: 13),
                 ),
                 controlAffinity: ListTileControlAffinity.leading,
               ),

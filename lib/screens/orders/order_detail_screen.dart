@@ -69,9 +69,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
-          backgroundColor: AppColors.navyDark,
+          backgroundColor: AppColors.navy,
           leading: IconButton(
             icon:
                 const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold),
@@ -126,7 +126,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ? 'Session Expired'
                             : 'Could Not Load Order',
                         style: const TextStyle(
-                            color: AppColors.white,
+                            color: AppColors.navy,
                             fontSize: 18,
                             fontWeight: FontWeight.w800)),
                     const SizedBox(height: 8),
@@ -161,7 +161,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
             return RefreshIndicator(
               color: AppColors.gold,
-              backgroundColor: AppColors.navyDark,
+              backgroundColor: AppColors.white,
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -171,11 +171,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF1A2E7A), Color(0xFF0F1E55)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                           color: AppColors.gold.withValues(alpha: .35)),
@@ -190,7 +186,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         children: [
                           Text(o['product'] ?? 'Sign Board Order',
                               style: const TextStyle(
-                                  color: AppColors.white,
+                                  color: AppColors.navy,
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800)),
                           const SizedBox(height: 6),
@@ -236,7 +232,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   decoration: BoxDecoration(
                                     color: isDone
                                         ? AppColors.success
-                                        : AppColors.navyLight,
+                                        : AppColors.softGray,
                                     shape: BoxShape.circle,
                                     border: isNow
                                         ? Border.all(
@@ -249,7 +245,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                         : Icons.radio_button_unchecked,
                                     size: 14,
                                     color: isDone
-                                        ? Colors.white
+                                        ? AppColors.white
                                         : AppColors.textMuted,
                                   ),
                                 ),
@@ -259,7 +255,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     height: 28,
                                     color: idx < currentStep
                                         ? AppColors.success
-                                        : AppColors.navyLight,
+                                        : AppColors.cardBorder,
                                   ),
                               ]),
                               const SizedBox(width: 14),
@@ -277,7 +273,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                                   ? FontWeight.w800
                                                   : FontWeight.w600,
                                               color: isDone
-                                                  ? AppColors.white
+                                                  ? AppColors.charcoal
                                                   : AppColors.textMuted, // ✅
                                               fontSize: 13,
                                             )),
@@ -313,7 +309,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         _Row('Address', o['address'].toString()),
                       // ✅ Show text design if present
                       if ((o['signText'] ?? '').toString().isNotEmpty) ...[
-                        const Divider(height: 16, color: AppColors.navyLight),
+                        const Divider(height: 16, color: AppColors.cardBorder),
                         _Row('Sign Text', o['signText'].toString()),
                         if ((o['signFont'] ?? '').toString().isNotEmpty)
                           _Row('Sign Font', o['signFont'].toString()),
@@ -328,7 +324,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     child: Column(children: [
                       _Row('Estimated Price', money(o['estimatedPrice'])),
                       _Row('GST', money(o['gst'])),
-                      const Divider(height: 20, color: AppColors.navyLight),
+                      const Divider(height: 20, color: AppColors.cardBorder),
                       Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -336,7 +332,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 15,
-                                    color: AppColors.white)),
+                                    color: AppColors.navy)),
                             Text(money(o['estimatedPrice']),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800,
@@ -364,7 +360,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 child: Text(humanize(m['status'] ?? ''),
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600,
-                                        color: AppColors.white)), // ✅
+                                        color: AppColors.charcoal)), // ✅
                               ),
                               Text(m['time'] ?? '',
                                   style: const TextStyle(
@@ -393,16 +389,16 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppColors.navyDark,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.navyLight),
+          border: Border.all(color: AppColors.cardBorder),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title,
               style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.white)),
+                  color: AppColors.navy)),
           const SizedBox(height: 14),
           child,
         ]),
@@ -426,7 +422,7 @@ class _Row extends StatelessWidget {
                   style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: AppColors.white), // ✅
+                      color: AppColors.charcoal), // ✅
                   textAlign: TextAlign.end)),
         ]),
       );

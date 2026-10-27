@@ -120,9 +120,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!didPop) widget.onBack?.call();
       },
       child: Scaffold(
-      backgroundColor: AppColors.navyDeep,
+      backgroundColor: AppColors.softGray,
       appBar: AppBar(
-        backgroundColor: AppColors.navyDark,
+        backgroundColor: AppColors.navy,
         leading: widget.onBack != null
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold),
@@ -168,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const Text('Customer Login',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.white)),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.navy)),
                   const SizedBox(height: 6),
                   const Text('Order sign boards, request service\nand track every update.',
                       textAlign: TextAlign.center,
@@ -179,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
-                    style: const TextStyle(color: AppColors.white),
+                    style: const TextStyle(color: AppColors.charcoal),
                     decoration: InputDecoration(
                       labelText: 'Email address',
                       prefixIcon: const Icon(Icons.mail_outline),
@@ -199,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _password,
                     obscureText: _obscure,
                     onSubmitted: (_) => _submit(),
-                    style: const TextStyle(color: AppColors.white),
+                    style: const TextStyle(color: AppColors.charcoal),
                     decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline),

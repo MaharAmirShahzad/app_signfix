@@ -94,13 +94,13 @@ class NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) => Container(
-        color: AppColors.navyDeep,
+        color: AppColors.softGray,
         child: FutureBuilder<List<dynamic>>(
           future: _future,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
               return const Center(
-                  child: CircularProgressIndicator(color: AppColors.info));
+                  child: CircularProgressIndicator(color: AppColors.gold));
             }
             if (snap.hasError) {
               final errMsg = snap.error.toString();
@@ -109,8 +109,8 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                       errMsg.toLowerCase().contains('unauthorized') ||
                       errMsg.toLowerCase().contains('401');
               return RefreshIndicator(
-                color: AppColors.info,
-                backgroundColor: AppColors.navyDark,
+                color: AppColors.gold,
+                backgroundColor: AppColors.white,
                 onRefresh: _pullToRefresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -150,7 +150,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                                   ? 'Session Expired'
                                   : 'Could Not Load Alerts',
                               style: const TextStyle(
-                                  color: AppColors.white,
+                                  color: AppColors.navy,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800)),
                           const SizedBox(height: 8),
@@ -159,7 +159,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                                   ? 'Your session has expired. Please sign in again.'
                                   : 'Unable to load data. Please try again.',
                               style: const TextStyle(
-                                  color: AppColors.textLight, fontSize: 13),
+                                  color: AppColors.midGray, fontSize: 13),
                               textAlign: TextAlign.center),
                           const SizedBox(height: 24),
                           SizedBox(
@@ -185,8 +185,8 @@ class NotificationsScreenState extends State<NotificationsScreen> {
 
             if (list.isEmpty) {
               return RefreshIndicator(
-                color: AppColors.info,
-                backgroundColor: AppColors.navyDark,
+                color: AppColors.gold,
+                backgroundColor: AppColors.white,
                 onRefresh: _pullToRefresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -199,24 +199,24 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: AppColors.navyDark,
+                            color: AppColors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.navyLight),
+                            border: Border.all(color: AppColors.cardBorder),
                           ),
                           child: const Icon(Icons.notifications_none_rounded,
-                              size: 48, color: AppColors.textMuted),
+                              size: 48, color: AppColors.midGray),
                         ),
                         const SizedBox(height: 16),
                         const Text('No alerts yet',
                             style: TextStyle(
-                                color: AppColors.textLight,
+                                color: AppColors.navy,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
                         const Text(
                             'New job assignments and updates\nwill appear here.',
                             style: TextStyle(
-                                color: AppColors.textMuted,
+                                color: AppColors.midGray,
                                 fontSize: 13,
                                 height: 1.5),
                             textAlign: TextAlign.center),
@@ -230,29 +230,29 @@ class NotificationsScreenState extends State<NotificationsScreen> {
             final unread = list.where((n) => n['read'] != true).length;
 
             return RefreshIndicator(
-              color: AppColors.info,
-              backgroundColor: AppColors.navyDark,
+              color: AppColors.gold,
+              backgroundColor: AppColors.white,
               onRefresh: _pullToRefresh,
               child: Column(
                 children: [
                   // Header row
                   Container(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    color: AppColors.navyDeep,
+                    color: AppColors.softGray,
                     child: Row(children: [
                       if (unread > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.info.withValues(alpha: .12),
+                            color: AppColors.gold.withValues(alpha: .12),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: AppColors.info.withValues(alpha: .3)),
+                                color: AppColors.gold.withValues(alpha: .3)),
                           ),
                           child: Text('$unread unread',
                               style: const TextStyle(
-                                  color: AppColors.info,
+                                  color: AppColors.gold,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 12)),
                         ),
@@ -261,7 +261,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                         onPressed: _markAllRead,
                         child: const Text('Mark all read',
                             style: TextStyle(
-                                color: AppColors.info,
+                                color: AppColors.gold,
                                 fontWeight: FontWeight.w700)),
                       ),
                     ]),
@@ -291,15 +291,13 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: isRead
-                                  ? AppColors.navyDark
-                                  : AppColors.navyMid,
+                              color: AppColors.white,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isEmergency
                                     ? AppColors.danger.withValues(alpha: .6)
                                     : isRead
-                                        ? AppColors.navyLight
+                                        ? AppColors.cardBorder
                                         : color.withValues(alpha: .4),
                                 width: isEmergency ? 1.5 : 1,
                               ),
@@ -341,7 +339,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                                                   style: TextStyle(
                                                     color: isEmergency
                                                         ? AppColors.danger
-                                                        : AppColors.white,
+                                                        : AppColors.navy,
                                                     fontWeight: isRead
                                                         ? FontWeight.w600
                                                         : FontWeight.w800,
@@ -371,13 +369,12 @@ class NotificationsScreenState extends State<NotificationsScreen> {
                                             const Icon(
                                                 Icons.access_time_rounded,
                                                 size: 11,
-                                                color: AppColors.textMuted),
+                                                color: AppColors.midGray),
                                             const SizedBox(width: 4),
                                             Text(n['createdAt'] ?? '',
                                                 style: const TextStyle(
                                                     fontSize: 11,
-                                                    color:
-                                                        AppColors.textMuted)),
+                                                    color: AppColors.midGray)),
                                             if (isRead) ...[
                                               const Spacer(),
                                               const Icon(Icons.done_all_rounded,
@@ -403,7 +400,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
   void _showDetail(BuildContext context, Map<String, dynamic> n, Color color) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -415,7 +412,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.navyLight,
+              color: AppColors.cardBorder,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -435,7 +432,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
           Text(
             n['title']?.toString() ?? '',
             style: const TextStyle(
-                color: AppColors.white,
+                color: AppColors.navy,
                 fontSize: 16,
                 fontWeight: FontWeight.w800),
             textAlign: TextAlign.center,
@@ -445,7 +442,7 @@ class NotificationsScreenState extends State<NotificationsScreen> {
           Text(
             n['body']?.toString() ?? '',
             style: const TextStyle(
-                color: AppColors.textLight, fontSize: 13, height: 1.5),
+                color: AppColors.midGray, fontSize: 13, height: 1.5),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
@@ -453,11 +450,11 @@ class NotificationsScreenState extends State<NotificationsScreen> {
           if ((n['createdAt']?.toString() ?? '').isNotEmpty)
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.access_time_rounded,
-                  size: 12, color: AppColors.textMuted),
+                  size: 12, color: AppColors.midGray),
               const SizedBox(width: 4),
               Text(n['createdAt'].toString(),
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.textMuted)),
+                  style:
+                      const TextStyle(fontSize: 11, color: AppColors.midGray)),
             ]),
           const SizedBox(height: 20),
           SizedBox(

@@ -71,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final picker = ImagePicker();
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
@@ -81,12 +81,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                  color: AppColors.navyLight,
+                  color: AppColors.cardBorder,
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
           const Text('Update Profile Photo',
               style: TextStyle(
-                  color: AppColors.white,
+                  color: AppColors.navy,
                   fontWeight: FontWeight.w800,
                   fontSize: 16)),
           const SizedBox(height: 16),
@@ -100,20 +100,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppColors.gold)),
             title: const Text('Take Photo',
                 style: TextStyle(
-                    color: AppColors.white, fontWeight: FontWeight.w600)),
+                    color: AppColors.navy, fontWeight: FontWeight.w600)),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           ListTile(
             leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                    color: AppColors.info.withValues(alpha: .12),
+                    color: AppColors.navy.withValues(alpha: .08),
                     borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.photo_library_outlined,
-                    color: AppColors.info)),
+                    color: AppColors.gold)),
             title: const Text('Choose from Gallery',
                 style: TextStyle(
-                    color: AppColors.white, fontWeight: FontWeight.w600)),
+                    color: AppColors.navy, fontWeight: FontWeight.w600)),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
           if (p['profilePhotoPath'] != null &&
@@ -188,10 +188,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.navyDark,
-        title: const Text('Sign out', style: TextStyle(color: AppColors.white)),
+        backgroundColor: AppColors.white,
+        title: const Text('Sign out', style: TextStyle(color: AppColors.navy)),
         content: const Text('Are you sure you want to sign out?',
-            style: TextStyle(color: AppColors.textLight)),
+            style: TextStyle(color: AppColors.midGray)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -211,22 +211,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
-          backgroundColor: AppColors.navyDark,
+          backgroundColor: AppColors.appBar,
+          foregroundColor: AppColors.navy,
           automaticallyImplyLeading: false,
           title: const Text('My Profile',
               style: TextStyle(
-                  color: AppColors.white, fontWeight: FontWeight.w800)),
+                  color: AppColors.navy, fontWeight: FontWeight.w800)),
         ),
         body: Container(
-          color: AppColors.navyDeep,
+          color: AppColors.softGray,
           child: FutureBuilder<Map<String, dynamic>>(
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
                 return const Center(
-                    child: CircularProgressIndicator(color: AppColors.info));
+                    child: CircularProgressIndicator(color: AppColors.gold));
               }
               if (snap.hasError) {
                 final errMsg = snap.error.toString();
@@ -266,7 +267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? 'Session Expired'
                               : 'Could Not Load Profile',
                           style: const TextStyle(
-                              color: AppColors.white,
+                              color: AppColors.navy,
                               fontSize: 18,
                               fontWeight: FontWeight.w800)),
                       const SizedBox(height: 8),
@@ -275,7 +276,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ? 'Your session has expired. Please sign in again.'
                               : 'Unable to load data. Please try again.',
                           style: const TextStyle(
-                              color: AppColors.textLight, fontSize: 13),
+                              color: AppColors.midGray, fontSize: 13),
                           textAlign: TextAlign.center),
                       const SizedBox(height: 24),
                       SizedBox(
@@ -297,8 +298,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final skills = List<String>.from(p['skills'] as List? ?? []);
 
               return RefreshIndicator(
-                color: AppColors.info,
-                backgroundColor: AppColors.navyDark,
+                color: AppColors.gold,
+                backgroundColor: AppColors.white,
                 onRefresh: _pullToRefresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -316,13 +317,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             height: 90,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppColors.info.withValues(alpha: .12),
+                              color: AppColors.gold.withValues(alpha: .12),
                               border: Border.all(
-                                  color: AppColors.info.withValues(alpha: .5),
+                                  color: AppColors.gold.withValues(alpha: .5),
                                   width: 2),
                               boxShadow: [
                                 BoxShadow(
-                                    color: AppColors.info.withValues(alpha: .2),
+                                    color: AppColors.gold.withValues(alpha: .2),
                                     blurRadius: 16)
                               ],
                             ),
@@ -340,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       style: const TextStyle(
                                           fontSize: 36,
                                           fontWeight: FontWeight.w900,
-                                          color: AppColors.info),
+                                          color: AppColors.gold),
                                     )),
                             ),
                           ),
@@ -362,7 +363,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   color: AppColors.success,
                                   shape: BoxShape.circle),
                               child: const Icon(Icons.check_rounded,
-                                  size: 10, color: Colors.white),
+                                  size: 10, color: AppColors.white),
                             ),
                           ),
                         ]),
@@ -375,20 +376,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.white)),
+                              color: AppColors.navy)),
                       const SizedBox(height: 4),
                       Text(p['email'] ?? '',
                           style: const TextStyle(
-                              color: AppColors.textLight, fontSize: 13)),
+                              color: AppColors.midGray, fontSize: 13)),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 5),
                         decoration: BoxDecoration(
-                          color: AppColors.info.withValues(alpha: .1),
+                          color: AppColors.gold.withValues(alpha: .1),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: AppColors.info.withValues(alpha: .3)),
+                              color: AppColors.gold.withValues(alpha: .3)),
                         ),
                         child: Text(
                             p['employeeId']?.toString().isNotEmpty == true
@@ -397,7 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.info)),
+                                color: AppColors.gold)),
                       ),
                     ])),
                     const SizedBox(height: 20),
@@ -416,9 +417,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: AppColors.navyDark,
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.navyLight),
+                        border: Border.all(color: AppColors.cardBorder),
                       ),
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,7 +429,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w800,
-                                      color: AppColors.white)),
+                                      color: AppColors.navy)),
                               const Spacer(),
                               if (!_editing)
                                 GestureDetector(
@@ -438,21 +439,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         horizontal: 12, vertical: 6),
                                     decoration: BoxDecoration(
                                       color:
-                                          AppColors.info.withValues(alpha: .12),
+                                          AppColors.gold.withValues(alpha: .12),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                          color: AppColors.info
+                                          color: AppColors.gold
                                               .withValues(alpha: .3)),
                                     ),
                                     child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.edit_outlined,
-                                              size: 14, color: AppColors.info),
+                                              size: 14, color: AppColors.gold),
                                           SizedBox(width: 4),
                                           Text('Edit',
                                               style: TextStyle(
-                                                  color: AppColors.info,
+                                                  color: AppColors.gold,
                                                   fontWeight: FontWeight.w700,
                                                   fontSize: 12)),
                                         ]),
@@ -479,10 +480,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
                                   border:
-                                      Border.all(color: AppColors.navyLight),
+                                      Border.all(color: AppColors.cardBorder),
                                 ),
                                 child: Material(
-                                  color: AppColors.navyMid,
+                                  color: AppColors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   child: SwitchListTile(
                                     contentPadding: const EdgeInsets.symmetric(
@@ -492,12 +493,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         setState(() => _locationSharing = v),
                                     title: const Text('Location sharing',
                                         style: TextStyle(
-                                            color: AppColors.white,
+                                            color: AppColors.navy,
                                             fontWeight: FontWeight.w600)),
                                     subtitle: const Text(
                                         'Allow admin to track your location during jobs',
                                         style: TextStyle(
-                                            color: AppColors.textMuted,
+                                            color: AppColors.midGray,
                                             fontSize: 12)),
                                   ),
                                 ),
@@ -569,7 +570,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     : 'Disabled',
                                 valueColor: p['locationSharing'] == true
                                     ? AppColors.success
-                                    : AppColors.textMuted,
+                                    : AppColors.midGray,
                               ),
                             ],
                           ]),
@@ -581,9 +582,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.navyDark,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.navyLight),
+                          border: Border.all(color: AppColors.cardBorder),
                         ),
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -592,7 +593,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w800,
-                                      color: AppColors.white)),
+                                      color: AppColors.navy)),
                               const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8,
@@ -602,17 +603,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 12, vertical: 6),
                                           decoration: BoxDecoration(
-                                            color: AppColors.info
+                                            color: AppColors.gold
                                                 .withValues(alpha: .1),
                                             borderRadius:
                                                 BorderRadius.circular(20),
                                             border: Border.all(
-                                                color: AppColors.info
+                                                color: AppColors.gold
                                                     .withValues(alpha: .3)),
                                           ),
                                           child: Text(s,
                                               style: const TextStyle(
-                                                  color: AppColors.info,
+                                                  color: AppColors.gold,
                                                   fontWeight: FontWeight.w600,
                                                   fontSize: 12)),
                                         ))
@@ -668,7 +669,7 @@ class _PerfCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.navyDark,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: color.withValues(alpha: .3)),
           ),
@@ -686,8 +687,8 @@ class _PerfCard extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 22, fontWeight: FontWeight.w800, color: color)),
               Text(label,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textMuted)),
+                  style:
+                      const TextStyle(fontSize: 12, color: AppColors.midGray)),
             ]),
           ]),
         ),
@@ -706,7 +707,7 @@ class _Field extends StatelessWidget {
   Widget build(BuildContext context) => TextField(
         controller: ctrl,
         keyboardType: type,
-        style: const TextStyle(color: AppColors.white),
+        style: const TextStyle(color: AppColors.charcoal),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
@@ -724,7 +725,7 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: AppColors.info),
+          Icon(icon, size: 16, color: AppColors.gold),
           const SizedBox(width: 10),
           Expanded(
               child: Column(
@@ -732,13 +733,13 @@ class _InfoRow extends StatelessWidget {
                   children: [
                 Text(label,
                     style: const TextStyle(
-                        fontSize: 11, color: AppColors.textMuted)),
+                        fontSize: 11, color: AppColors.midGray)),
                 const SizedBox(height: 2),
                 Text(value,
                     style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: valueColor ?? AppColors.white)),
+                        color: valueColor ?? AppColors.charcoal)),
               ])),
         ],
       );

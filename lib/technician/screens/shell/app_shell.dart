@@ -42,7 +42,9 @@ class _AppShellState extends State<AppShell> {
   Future<void> _loadUnread() async {
     try {
       final list = await widget.api.notifications();
-      if (mounted) setState(() => _unread = list.where((n) => n['read'] != true).length);
+      if (mounted) {
+        setState(() => _unread = list.where((n) => n['read'] != true).length);
+      }
     } catch (_) {}
   }
 
@@ -60,78 +62,133 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) => PopScope(
-    // Dashboard tab (0) → allow minimize; any other tab → go back to Dashboard
-    canPop: _index == 0,
-    onPopInvokedWithResult: (didPop, _) {
-      if (!didPop && _index != 0) {
-        setState(() => _index = 0);
-      }
-    },
-    child: Scaffold(
-    backgroundColor: AppColors.navyDeep,
-    appBar: AppBar(
-      backgroundColor: AppColors.navyDark,
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      title: Row(children: [
-        // Logo
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.asset('assets/images/logo.jpeg', width: 36, height: 36, fit: BoxFit.cover),
-        ),
-        const SizedBox(width: 10),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          RichText(text: const TextSpan(children: [
-            TextSpan(text: 'Sign', style: TextStyle(color: AppColors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-            TextSpan(text: 'Fix', style: TextStyle(color: AppColors.gold, fontSize: 16, fontWeight: FontWeight.w900)),
-            TextSpan(text: ' Tech', style: TextStyle(color: AppColors.info, fontSize: 14, fontWeight: FontWeight.w700)),
-          ])),
-          const Text('Field operations', style: TextStyle(fontSize: 10, color: AppColors.textMuted)),
-        ]),
-      ]),
-      actions: [
-        // Notification bell with badge
-        Stack(alignment: Alignment.center, children: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AppColors.gold),
-            onPressed: () => _goTo(2),
-          ),
-          if (_unread > 0)
-            Positioned(right: 8, top: 8,
-              child: Container(
-                width: 16, height: 16,
-                decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
-                child: Center(child: Text('$_unread',
-                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800))),
+        // Dashboard tab (0) → allow minimize; any other tab → go back to Dashboard
+        canPop: _index == 0,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _index != 0) {
+            setState(() => _index = 0);
+          }
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.softGray,
+          appBar: AppBar(
+            backgroundColor: AppColors.appBar,
+            foregroundColor: AppColors.navy,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            systemOverlayStyle: SystemUiOverlayStyle.dark,
+            title: Row(children: [
+              // Logo
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset('assets/images/logo.jpeg',
+                    width: 36, height: 36, fit: BoxFit.cover),
               ),
-            ),
-        ]),
-      ],
-    ),
-    body: SafeArea(child: IndexedStack(index: _index, children: _pages)),
-    bottomNavigationBar: SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Container(
-          height: 70,
-          decoration: BoxDecoration(
-            color: AppColors.navyDark,
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, label: 'Dashboard', selected: _index == 0, color: AppColors.info, onTap: () => _goTo(0)),
-              _NavItem(icon: Icons.work_outline, selectedIcon: Icons.work, label: 'Jobs', selected: _index == 1, color: AppColors.info, onTap: () => _goTo(1)),
-              _NavItemBadge(icon: Icons.notifications_outlined, selectedIcon: Icons.notifications, label: 'Alerts', selected: _index == 2, color: AppColors.info, badge: _unread, onTap: () => _goTo(2)),
-              _NavItem(icon: Icons.person_outline, selectedIcon: Icons.person, label: 'Profile', selected: _index == 3, color: AppColors.info, onTap: () => _goTo(3)),
+              const SizedBox(width: 10),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                RichText(
+                    text: const TextSpan(children: [
+                  TextSpan(
+                      text: 'Sign',
+                      style: TextStyle(
+                          color: AppColors.navy,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900)),
+                  TextSpan(
+                      text: 'Fix',
+                      style: TextStyle(
+                          color: AppColors.goldDark,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900)),
+                  TextSpan(
+                      text: ' Tech',
+                      style: TextStyle(
+                          color: AppColors.goldDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700)),
+                ])),
+                const Text('Field operations',
+                    style: TextStyle(fontSize: 10, color: AppColors.midGray)),
+              ]),
+            ]),
+            actions: [
+              // Notification bell with badge
+              Stack(alignment: Alignment.center, children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined,
+                      color: AppColors.goldDark),
+                  onPressed: () => _goTo(2),
+                ),
+                if (_unread > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: const BoxDecoration(
+                          color: AppColors.danger, shape: BoxShape.circle),
+                      child: Center(
+                          child: Text('$_unread',
+                              style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800))),
+                    ),
+                  ),
+              ]),
             ],
           ),
-        ),
-      ),
-    ),
-    ), // close Scaffold
-  );   // close PopScope
+          body: SafeArea(child: IndexedStack(index: _index, children: _pages)),
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Container(
+                height: 70,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _NavItem(
+                        icon: Icons.dashboard_outlined,
+                        selectedIcon: Icons.dashboard,
+                        label: 'Dashboard',
+                        selected: _index == 0,
+                        color: AppColors.gold,
+                        onTap: () => _goTo(0)),
+                    _NavItem(
+                        icon: Icons.work_outline,
+                        selectedIcon: Icons.work,
+                        label: 'Jobs',
+                        selected: _index == 1,
+                        color: AppColors.gold,
+                        onTap: () => _goTo(1)),
+                    _NavItemBadge(
+                        icon: Icons.notifications_outlined,
+                        selectedIcon: Icons.notifications,
+                        label: 'Alerts',
+                        selected: _index == 2,
+                        color: AppColors.gold,
+                        badge: _unread,
+                        onTap: () => _goTo(2)),
+                    _NavItem(
+                        icon: Icons.person_outline,
+                        selectedIcon: Icons.person,
+                        label: 'Profile',
+                        selected: _index == 3,
+                        color: AppColors.gold,
+                        onTap: () => _goTo(3)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ), // close Scaffold
+      ); // close PopScope
 }
 
 // ── Custom Nav Item ───────────────────────────────────────────────────────────
@@ -152,38 +209,41 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: selected ? color.withValues(alpha: .2) : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              selected ? selectedIcon : icon,
-              color: selected ? color : AppColors.textMuted,
-              size: 22,
-            ),
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? color.withValues(alpha: .2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  selected ? selectedIcon : icon,
+                  color: selected ? color : AppColors.midGray,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                  color: selected ? color : AppColors.midGray,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? color : AppColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 class _NavItemBadge extends StatelessWidget {
@@ -205,60 +265,66 @@ class _NavItemBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: selected ? color.withValues(alpha: .2) : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  selected ? selectedIcon : icon,
-                  color: selected ? color : AppColors.textMuted,
-                  size: 22,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? color.withValues(alpha: .2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                if (badge > 0)
-                  Positioned(
-                    top: -4,
-                    right: -6,
-                    child: Container(
-                      width: 15,
-                      height: 15,
-                      decoration: const BoxDecoration(
-                        color: AppColors.danger,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$badge',
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      selected ? selectedIcon : icon,
+                      color: selected ? color : AppColors.midGray,
+                      size: 22,
+                    ),
+                    if (badge > 0)
+                      Positioned(
+                        top: -4,
+                        right: -6,
+                        child: Container(
+                          width: 15,
+                          height: 15,
+                          decoration: const BoxDecoration(
+                            color: AppColors.danger,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$badge',
+                              style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
-            ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                  color: selected ? color : AppColors.midGray,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? color : AppColors.textMuted,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }

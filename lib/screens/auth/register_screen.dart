@@ -65,30 +65,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _pickPhoto() async {
     final src = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 40, height: 4,
-              decoration: BoxDecoration(color: AppColors.navyLight,
+              decoration: BoxDecoration(color: AppColors.cardBorder,
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 14),
           const Text('Profile Photo',
-              style: TextStyle(color: AppColors.white,
+              style: TextStyle(color: AppColors.navy,
                   fontWeight: FontWeight.w800, fontSize: 16)),
           const SizedBox(height: 10),
           ListTile(
             leading: const Icon(Icons.camera_alt_outlined, color: AppColors.gold),
             title: const Text('Take Photo',
-                style: TextStyle(color: AppColors.white)),
+                style: TextStyle(color: AppColors.charcoal)),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           ListTile(
             leading: const Icon(Icons.photo_library_outlined, color: AppColors.info),
             title: const Text('Choose from Gallery',
-                style: TextStyle(color: AppColors.white)),
+                style: TextStyle(color: AppColors.charcoal)),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
         ]),
@@ -203,7 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         body: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -223,7 +223,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             height: 90,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppColors.navyMid,
+                              color: AppColors.softGray,
                               border: Border.all(
                                 color: _photoPath == null
                                     ? AppColors.danger.withValues(alpha: .7)
@@ -282,7 +282,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
-                          color: AppColors.white, // ✅ white
+                          color: AppColors.navy,
                         )),
                     const SizedBox(height: 6),
                     const Text(
@@ -316,7 +316,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _phone,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
-                      style: const TextStyle(color: AppColors.white),
+                      style: const TextStyle(color: AppColors.charcoal),
                       decoration: const InputDecoration(
                         labelText: 'Phone number',
                         hintText: '+91 9876543210',
@@ -328,7 +328,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _password,
                       obscureText: _obscure,
                       textInputAction: TextInputAction.next,
-                      style: const TextStyle(color: AppColors.white),
+                      style: const TextStyle(color: AppColors.charcoal),
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
@@ -348,7 +348,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _confirm,
                       obscureText: _obscure,
                       onSubmitted: (_) => _submit(),
-                      style: const TextStyle(color: AppColors.white),
+                      style: const TextStyle(color: AppColors.charcoal),
                       decoration: const InputDecoration(
                         labelText: 'Confirm password',
                         prefixIcon: Icon(Icons.lock_outline),
@@ -422,7 +422,7 @@ class _Field extends StatelessWidget {
         controller: controller,
         keyboardType: type,
         textInputAction: action,
-        style: const TextStyle(color: AppColors.white), // ✅ white input text
+        style: const TextStyle(color: AppColors.charcoal), // ✅ charcoal input text
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon),

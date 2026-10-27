@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../../core/app_theme.dart';
 import '../../services/api_client.dart';
+import '../activity/quotation_detail_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen(
@@ -22,10 +25,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<List<dynamic>> _fetchAndNotify() async {
     final list = await widget.api.notifications();
-    final unread = list.where((n) => n['read'] != true).length;
+    final unread = list.where((n) => !_isRead(n)).length;
     if (mounted) widget.onUnreadChanged?.call(unread);
     return list;
   }
+
+  bool _isRead(Map<String, dynamic> notification) =>
+      notification['read'] == true || notification['readAt'] != null;
 
   void _handleAuthError() async {
     await widget.api.logout();
@@ -57,7 +63,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       IconData icon) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.navyDark,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -68,7 +74,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.navyLight,
+              color: AppColors.cardBorder,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -86,7 +92,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Text(
             n['title']?.toString() ?? '',
             style: const TextStyle(
-                color: AppColors.white,
+                color: AppColors.navy,
                 fontSize: 16,
                 fontWeight: FontWeight.w800),
             textAlign: TextAlign.center,
@@ -120,6 +126,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ]),
       ),
     );
+  }
+
+  Map<String, dynamic> _notificationData(Object? value) {
+    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    return const {};
+  }
+
+  Future<void> _openNotification(
+      Map<String, dynamic> notification, Color color, IconData icon) async {
+    if (!_isRead(notification)) {
+      await _markRead(notification['id'].toString());
+    }
+    final eventKey = notification['eventKey']?.toString();
+    final data = _notificationData(notification['data']);
+    final quotationNo = data['quotationNo']?.toString();
+    if ((eventKey == 'quotation.sent' || eventKey == 'quotation.expiring') &&
+        quotationNo != null &&
+        quotationNo.isNotEmpty &&
+        mounted) {
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => QuotationDetailScreen(
+            api: widget.api,
+            quotationNo: quotationNo,
+          ),
+        ),
+      );
+      return;
+    }
+    if (mounted) _showDetail(context, notification, color, icon);
   }
 
   Future<void> _markAllRead() async {
@@ -156,23 +199,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: AppColors.navyDeep,
+        backgroundColor: AppColors.softGray,
         appBar: AppBar(
-          backgroundColor: AppColors.navyDark,
+          backgroundColor: AppColors.appBar,
+          foregroundColor: AppColors.navy,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
           leading: IconButton(
-            icon:
-                const Icon(Icons.arrow_back_ios_rounded, color: AppColors.gold),
+            icon: const Icon(Icons.arrow_back_ios_rounded,
+                color: AppColors.goldDark),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text('Notifications',
               style: TextStyle(
-                  color: AppColors.white, fontWeight: FontWeight.w800)),
+                  color: AppColors.navy, fontWeight: FontWeight.w800)),
           actions: [
             TextButton(
               onPressed: _markAllRead,
               child: const Text('Mark all read',
                   style: TextStyle(
-                      color: AppColors.gold, fontWeight: FontWeight.w700)),
+                      color: AppColors.goldDark, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -191,7 +237,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       errMsg.toLowerCase().contains('401');
               return RefreshIndicator(
                 color: AppColors.gold,
-                backgroundColor: AppColors.navyDark,
+                backgroundColor: AppColors.white,
                 onRefresh: _pullToRefresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -231,7 +277,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   ? 'Session Expired'
                                   : 'Could Not Load Notifications',
                               style: const TextStyle(
-                                  color: AppColors.white,
+                                  color: AppColors.navy,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800)),
                           const SizedBox(height: 8),
@@ -267,7 +313,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             if (list.isEmpty) {
               return RefreshIndicator(
                 color: AppColors.gold,
-                backgroundColor: AppColors.navyDark,
+                backgroundColor: AppColors.white,
                 onRefresh: _pullToRefresh,
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -280,9 +326,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Container(
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: AppColors.navyDark,
+                            color: AppColors.softGray,
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.navyLight),
+                            border: Border.all(color: AppColors.cardBorder),
                           ),
                           child: const Icon(Icons.notifications_none_rounded,
                               size: 48, color: AppColors.textMuted),
@@ -290,7 +336,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         const SizedBox(height: 16),
                         const Text('No notifications yet',
                             style: TextStyle(
-                                color: AppColors.textLight,
+                                color: AppColors.navy,
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600)),
                         const SizedBox(height: 6),
@@ -312,7 +358,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
             return RefreshIndicator(
               color: AppColors.gold,
-              backgroundColor: AppColors.navyDark,
+              backgroundColor: AppColors.white,
               onRefresh: _pullToRefresh,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,27 +399,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
                         final n = list[i] as Map<String, dynamic>;
-                        final isRead = n['read'] == true;
+                        final isRead = _isRead(n);
                         final color = _color(n['type']?.toString());
                         final icon = _icon(n['type']?.toString());
 
                         return GestureDetector(
-                          onTap: () {
-                            if (!isRead) _markRead(n['id'].toString());
-                            _showDetail(context, n, color, icon);
-                          },
+                          onTap: () => _openNotification(n, color, icon),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              // ✅ FIX: both read and unread use dark background
-                              color: isRead
-                                  ? AppColors.navyDark
-                                  : AppColors.navyMid,
+                              // ✅ FIX: read=white card, unread=softGray
+                              color:
+                                  isRead ? AppColors.white : AppColors.softGray,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isRead
-                                    ? AppColors.navyLight
+                                    ? AppColors.cardBorder
                                     : color.withValues(alpha: .4),
                                 width: isRead ? 1 : 1.5,
                               ),
@@ -414,8 +456,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                             Expanded(
                                               child: Text(n['title'] ?? '',
                                                   style: TextStyle(
-                                                    color: AppColors
-                                                        .white, // ✅ always white
+                                                    color: AppColors.navy,
                                                     fontWeight: isRead
                                                         ? FontWeight.w600
                                                         : FontWeight.w800,
