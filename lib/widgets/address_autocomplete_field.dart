@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import '../core/app_theme.dart';
 import '../services/api_client.dart';
@@ -88,6 +89,7 @@ class AddressAutocompleteField extends StatefulWidget {
     this.labelText = 'Delivery / Installation Address',
     this.hintText = 'Enter street, shop, area or landmark',
     this.showExtraFields = true,
+    this.showRequiredRegionFields = false,
     this.isRequired = true,
   });
 
@@ -98,18 +100,22 @@ class AddressAutocompleteField extends StatefulWidget {
   final String labelText;
   final String hintText;
   final bool showExtraFields;
+  final bool showRequiredRegionFields;
   final bool isRequired;
 
   @override
   State<AddressAutocompleteField> createState() =>
-      _AddressAutocompleteFieldState();
+      AddressAutocompleteFieldState();
 }
 
-class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
+class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   late final TextEditingController _searchCtrl;
   final _buildingCtrl = TextEditingController();
   final _floorCtrl = TextEditingController();
   final _landmarkCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
+  final _pincodeCtrl = TextEditingController();
   final _instructionsCtrl = TextEditingController();
 
   final _focusNode = FocusNode();
@@ -129,10 +135,12 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
   late StructuredAddress _currentAddress;
   bool _extraDetailsExpanded = false;
+  bool _regionValidationAttempted = false;
 
   @override
   void initState() {
     super.initState();
+    _extraDetailsExpanded = widget.showRequiredRegionFields;
     _currentAddress = StructuredAddress(
       formattedAddress: widget.initialAddress ?? '',
       addressLine: widget.initialAddress ?? '',
@@ -167,6 +175,9 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     _buildingCtrl.dispose();
     _floorCtrl.dispose();
     _landmarkCtrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    _pincodeCtrl.dispose();
     _instructionsCtrl.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -179,6 +190,14 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
     _currentAddress.formattedAddress = trimmed;
     _currentAddress.addressLine = trimmed;
+    _currentAddress.placeId = null;
+    if (widget.showRequiredRegionFields) {
+      _currentAddress
+        ..city = ''
+        ..state = ''
+        ..pincode = '';
+      _syncRegionControllers();
+    }
     _notifyAddressChanged();
     setState(() {
       _isLoading = false;
@@ -281,12 +300,13 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
         ..addressLine = addressLine.isNotEmpty ? addressLine : _searchCtrl.text
         ..city = details['city']?.toString() ?? ''
         ..state = details['state']?.toString() ?? ''
-        ..pincode = details['pincode']?.toString() ?? ''
+        ..pincode = _pincodeFrom(details)
         ..country = details['country']?.toString() ?? ''
         ..latitude = position.latitude
         ..longitude = position.longitude
         ..placeId = details['placeId']?.toString();
 
+      _syncRegionControllers();
       _hideSuggestions();
       setState(() {});
       _notifyAddressChanged();
@@ -334,7 +354,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
               details['addressLine']?.toString() ?? description;
           _currentAddress.city = details['city']?.toString() ?? '';
           _currentAddress.state = details['state']?.toString() ?? '';
-          _currentAddress.pincode = details['pincode']?.toString() ?? '';
+          _currentAddress.pincode = _pincodeFrom(details);
           _currentAddress.country = details['country']?.toString() ?? '';
 
           final lat = details['latitude'];
@@ -343,6 +363,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
           if (lon != null) _currentAddress.longitude = (lon as num).toDouble();
 
           _searchCtrl.text = _currentAddress.formattedAddress;
+          _syncRegionControllers();
         }
       }
     } catch (_) {
@@ -387,6 +408,11 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
       pincode: pincode,
       label: addr['label']?.toString() ?? 'Saved',
     );
+    _buildingCtrl.text = addr['building']?.toString() ?? '';
+    _floorCtrl.text = addr['floor']?.toString() ?? '';
+    _landmarkCtrl.text = addr['landmark']?.toString() ?? '';
+    _instructionsCtrl.text = addr['instructions']?.toString() ?? '';
+    _syncRegionControllers();
 
     final lat = addr['latitude'];
     final lon = addr['longitude'];
@@ -402,9 +428,48 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     _currentAddress.building = _buildingCtrl.text.trim();
     _currentAddress.floor = _floorCtrl.text.trim();
     _currentAddress.landmark = _landmarkCtrl.text.trim();
+    _currentAddress.city = _cityCtrl.text.trim();
+    _currentAddress.state = _stateCtrl.text.trim();
+    _currentAddress.pincode = _pincodeCtrl.text.trim();
     _currentAddress.instructions = _instructionsCtrl.text.trim();
 
     widget.onAddressSelected?.call(_currentAddress);
+  }
+
+  bool validateRequiredRegionFields() {
+    if (!widget.showRequiredRegionFields) return true;
+    setState(() => _regionValidationAttempted = true);
+    final pincodeIsValid =
+        RegExp(r'^\d{6}$').hasMatch(_pincodeCtrl.text.trim());
+    return _cityCtrl.text.trim().isNotEmpty &&
+        _stateCtrl.text.trim().isNotEmpty &&
+        pincodeIsValid &&
+        _buildingError == null;
+  }
+
+  String _pincodeFrom(Map<String, dynamic> details) =>
+      (details['pincode'] ?? details['postcode'] ?? details['postalCode'])
+          ?.toString() ??
+      '';
+
+  void _syncRegionControllers() {
+    _cityCtrl.text = _currentAddress.city;
+    _stateCtrl.text = _currentAddress.state;
+    _pincodeCtrl.text = _currentAddress.pincode;
+  }
+
+  String? get _buildingError {
+    final building = _buildingCtrl.text.trim().toLowerCase();
+    if (building.isEmpty) return null;
+    final locationParts = [
+      _cityCtrl.text.trim().toLowerCase(),
+      _stateCtrl.text.trim().toLowerCase(),
+      _pincodeCtrl.text.trim().toLowerCase(),
+    ];
+    if (locationParts.any((part) => part.isNotEmpty && part == building)) {
+      return 'Enter shop/house/building details, not a city or pincode.';
+    }
+    return null;
   }
 
   void _showSuggestionsDropdown() {
@@ -745,11 +810,15 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                     controller: _buildingCtrl,
                     style: const TextStyle(
                         color: AppColors.textBody, fontSize: 13),
-                    onChanged: (_) => _notifyAddressChanged(),
+                    onChanged: (_) {
+                      setState(() {});
+                      _notifyAddressChanged();
+                    },
                     decoration: InputDecoration(
                       labelText: 'Shop / House / Building #',
                       labelStyle:
                           const TextStyle(color: AppColors.navy, fontSize: 12),
+                      errorText: _buildingError,
                       filled: true,
                       fillColor: AppColors.cardBg,
                       border: OutlineInputBorder(
@@ -806,6 +875,122 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
             ),
+            if (widget.showRequiredRegionFields) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _cityCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(
+                          color: AppColors.textBody, fontSize: 13),
+                      onChanged: (_) {
+                        setState(() {});
+                        _notifyAddressChanged();
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'City',
+                        labelStyle: const TextStyle(
+                            color: AppColors.navy, fontSize: 12),
+                        errorText: _regionValidationAttempted &&
+                                _cityCtrl.text.trim().isEmpty
+                            ? 'City is required.'
+                            : null,
+                        filled: true,
+                        fillColor: AppColors.cardBg,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: AppColors.inputBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                              color: AppColors.gold, width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stateCtrl,
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(
+                          color: AppColors.textBody, fontSize: 13),
+                      onChanged: (_) {
+                        setState(() {});
+                        _notifyAddressChanged();
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'State',
+                        labelStyle: const TextStyle(
+                            color: AppColors.navy, fontSize: 12),
+                        errorText: _regionValidationAttempted &&
+                                _stateCtrl.text.trim().isEmpty
+                            ? 'State is required.'
+                            : null,
+                        filled: true,
+                        fillColor: AppColors.cardBg,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: AppColors.inputBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                              color: AppColors.gold, width: 1.5),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _pincodeCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                style: const TextStyle(color: AppColors.textBody, fontSize: 13),
+                onChanged: (_) {
+                  setState(() {});
+                  _notifyAddressChanged();
+                },
+                decoration: InputDecoration(
+                  labelText: 'Pincode',
+                  labelStyle:
+                      const TextStyle(color: AppColors.navy, fontSize: 12),
+                  hintText: '6-digit pincode',
+                  errorText: (_regionValidationAttempted ||
+                              _pincodeCtrl.text.isNotEmpty) &&
+                          !RegExp(r'^\d{6}$').hasMatch(_pincodeCtrl.text.trim())
+                      ? 'Enter a valid 6-digit pincode'
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.cardBg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppColors.inputBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        const BorderSide(color: AppColors.gold, width: 1.5),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             TextFormField(
               controller: _instructionsCtrl,

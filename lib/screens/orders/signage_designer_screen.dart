@@ -42,6 +42,7 @@ class SignageDesignerScreen extends StatefulWidget {
 class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   final _textCtrl = TextEditingController(text: 'SIGNFIX STUDIOS');
   final _addressCtrl = TextEditingController();
+  final _addressFieldKey = GlobalKey<AddressAutocompleteFieldState>();
   StructuredAddress? _structuredAddress;
 
   // ── STRICT approved 5 fonts for Signage ───────────────────────────────────
@@ -198,7 +199,24 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   double get _minimumOrderShortfall =>
       _hasBannerMinimum ? orderMinimumShortfall(_calculatedPrice) : 0;
 
+  bool _validateDeliveryRegion() {
+    final isValid =
+        _addressFieldKey.currentState?.validateRequiredRegionFields() ?? false;
+    if (!isValid && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Enter City, State and a valid 6-digit Pincode to continue.'),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    return isValid;
+  }
+
   Future<void> _generateAiDesign() async {
+    if (!_validateDeliveryRegion()) return;
     final text = _textCtrl.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -346,6 +364,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
       );
       return;
     }
+    if (!_validateDeliveryRegion()) return;
     if (_minimumOrderShortfall > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -377,6 +396,9 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
         'installation': true,
         'transportation': true,
         'address': address,
+        'city': _structuredAddress?.city.trim(),
+        'state': _structuredAddress?.state.trim(),
+        'pincode': _structuredAddress?.pincode.trim(),
         'deliveryAddress': _structuredAddress?.toMap(),
         'saveAddress': _structuredAddress?.saveToProfile ?? false,
         'estimatedPrice': _calculatedPrice,
@@ -950,8 +972,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
 
           // ── Delivery Address & Pricing Summary ──────────────────────────────
           AddressAutocompleteField(
+            key: _addressFieldKey,
             api: widget.api,
             initialAddress: _addressCtrl.text,
+            showRequiredRegionFields: true,
             onAddressSelected: (addr) {
               setState(() {
                 _structuredAddress = addr;
