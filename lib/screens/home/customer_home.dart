@@ -168,7 +168,14 @@ class _CustomerHomeState extends State<CustomerHome> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => ProfileScreen(
-                        api: widget.api, onLogout: widget.onLogout),
+                      api: widget.api,
+                      onLogout: widget.onLogout,
+                      onOpenActivity: (tab) {
+                        Navigator.of(context).pop();
+                        _trackTabNotifier.value = tab;
+                        _goTo(3);
+                      },
+                    ),
                   )),
             ),
           ],
@@ -747,12 +754,12 @@ class _PromoBannerSlider extends StatelessWidget {
           'top': (
             icon: Icons.palette_outlined,
             label: 'Neon & Signage Design',
-            color: AppColors.navy
+            color: AppColors.success
           ),
           'cta': (
             icon: Icons.auto_awesome_outlined,
             label: 'Design Studio',
-            color: AppColors.navy
+            color: AppColors.gold
           ),
         };
       case 'home_banner_3':
@@ -760,12 +767,12 @@ class _PromoBannerSlider extends StatelessWidget {
           'top': (
             icon: Icons.bolt_outlined,
             label: 'Power Supply Catalog',
-            color: AppColors.navy
+            color: AppColors.success
           ),
           'cta': (
             icon: Icons.electrical_services_outlined,
             label: 'Browse Drivers',
-            color: AppColors.navy
+            color: AppColors.gold
           ),
         };
       default: // home_banner_1

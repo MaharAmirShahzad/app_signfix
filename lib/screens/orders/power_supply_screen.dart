@@ -223,6 +223,11 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
   final _addressCtrl = TextEditingController();
   StructuredAddress? _structuredAddress;
   bool _submitting = false;
+  Map<String, dynamic>? _serverQuote;
+  bool _isCalculatingPrice = false;
+  String? _pricingError;
+  Timer? _priceDebounce;
+  int _priceRequestGeneration = 0;
 
   // Wattage Calculator inputs
   final _neonLengthCtrl = TextEditingController(text: '15');
@@ -233,13 +238,71 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
     super.initState();
     _selectedProduct = _catalog[0];
     _updateRecommendedWattage();
+    unawaited(_refreshServerQuote());
   }
 
   @override
   void dispose() {
     _addressCtrl.dispose();
     _neonLengthCtrl.dispose();
+    _priceDebounce?.cancel();
     super.dispose();
+  }
+
+  Map<String, dynamic> get _calculatorInput {
+    final length = double.tryParse(_neonLengthCtrl.text.trim()) ?? 15.0;
+    return {
+      'product': 'LED Sign Board',
+      'length': length,
+      'width': 1.0,
+      'unit': 'ft',
+      'quantity': _quantity,
+      'material': 'Aluminium',
+      'lighting': 'LED',
+      'ledWatt': _calculatedRecommendedWatts,
+      'installation': false,
+      'transportation': true,
+    };
+  }
+
+  Future<bool> _refreshServerQuote() async {
+    final requestGeneration = ++_priceRequestGeneration;
+    if (mounted) {
+      setState(() {
+        _isCalculatingPrice = true;
+        _pricingError = null;
+        _serverQuote = null;
+      });
+    }
+    try {
+      final quote = await widget.api.calculate(_calculatorInput);
+      if (!mounted || requestGeneration != _priceRequestGeneration) return false;
+      setState(() => _serverQuote = quote);
+      return true;
+    } catch (error) {
+      if (mounted && requestGeneration == _priceRequestGeneration) {
+        setState(() => _pricingError = error.toString());
+      }
+      return false;
+    } finally {
+      if (mounted && requestGeneration == _priceRequestGeneration) {
+        setState(() => _isCalculatingPrice = false);
+      }
+    }
+  }
+
+  void _scheduleServerQuote() {
+    _priceDebounce?.cancel();
+    _priceRequestGeneration++;
+    setState(() {
+      _isCalculatingPrice = true;
+      _pricingError = null;
+      _serverQuote = null;
+    });
+    _priceDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => unawaited(_refreshServerQuote()),
+    );
   }
 
   void _updateRecommendedWattage() {
@@ -251,26 +314,33 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
     });
   }
 
-  double get _subtotal {
-    double total = _selectedProduct.price * _quantity;
-    if (_includeQuickConnectors) total += 380;
-    if (_includeMountingClips) total += 150;
-    return total;
-  }
+  double get _displayTotal =>
+      (_serverQuote?['estimatedPrice'] as num?)?.toDouble() ?? 0;
 
-    bool get _hasBannerMinimum =>
+  bool get _hasBannerMinimum =>
       requiresPromotionalOrderMinimum(widget.promotionBannerId);
 
   double get _minimumOrderShortfall =>
-      _hasBannerMinimum ? orderMinimumShortfall(_subtotal) : 0;
+      _hasBannerMinimum && _serverQuote != null
+          ? orderMinimumShortfall(_displayTotal)
+          : 0;
 
-  Future<void> _proceedToCheckout() async {
+  Future<void> _proceedToCheckout({bool retryAfterPriceChange = true}) async {
     if (_minimumOrderShortfall > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Minimum order is ${money(2500)}. Add ${money(_minimumOrderShortfall.ceil())} more to continue.',
           ),
+        ),
+      );
+      return;
+    }
+    if (_isCalculatingPrice || _serverQuote == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Wait for the latest server price before submitting.'),
+          backgroundColor: AppColors.warning,
         ),
       );
       return;
@@ -288,10 +358,12 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
       return;
     }
 
+    final orderInput = Map<String, dynamic>.from(_calculatorInput);
+    final estimatedPrice = _displayTotal;
     setState(() => _submitting = true);
     try {
       final orderSpecs = {
-        'product': 'LED Sign Board', // mapped to existing catalog product
+        ...orderInput,
         'category': 'Power Supply & Electrical Signage',
         'powerSupplyModel': _selectedProduct.name,
         'modelId': _selectedProduct.id,
@@ -302,16 +374,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
         'quantity': _quantity,
         'includeQuickConnectors': _includeQuickConnectors,
         'includeMountingClips': _includeMountingClips,
-        'length': 1.0,
-        'width': 1.0,
-        'material': 'Aluminium',
-        'lighting': 'LED',
-        'installation': false,
-        'transportation': true,
         'address': address,
         'deliveryAddress': _structuredAddress?.toMap(),
         'saveAddress': _structuredAddress?.saveToProfile ?? false,
-        'estimatedPrice': _subtotal,
+        'estimatedPrice': estimatedPrice,
         'idempotencyKey':
             '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32).toRadixString(16)}',
         'promotionBannerId': widget.promotionBannerId,
@@ -332,7 +398,7 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
           title: const Text('Order Placed Successfully',
               style: TextStyle(color: AppColors.white)),
           content: Text(
-            'Order #$orderId has been submitted for ${_selectedProduct.name} (Qty: $_quantity).\n\nTotal: ₹${_subtotal.round()}\nPromotion Banner: ${widget.promotionBannerId} (Eligible for ₹200 Cashback upon payment confirmation).',
+            'Order #$orderId has been submitted for ${_selectedProduct.name} (Qty: $_quantity).\n\nTotal: ${money(estimatedPrice)}\nPromotion Banner: ${widget.promotionBannerId} (Eligible for ₹200 Cashback upon payment confirmation).',
             style: const TextStyle(color: AppColors.textLight),
           ),
           actions: [
@@ -347,10 +413,49 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
           ],
         ),
       );
-    } catch (e) {
-      setState(() => _submitting = false);
-      if (mounted) {
-        showAppError(context, e);
+    } catch (error) {
+      if (mounted) setState(() => _submitting = false);
+      if (error is ApiException &&
+          error.statusCode == 409 &&
+          retryAfterPriceChange &&
+          mounted) {
+        final refreshed = await _refreshServerQuote();
+        if (!mounted) return;
+        if (!refreshed || _serverQuote == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Could not refresh the price. Please retry the calculation.'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+          return;
+        }
+        final accepted = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text('Price updated'),
+                content: Text(
+                  'The server price changed. The new total is ${money(_displayTotal)}. Confirm to submit again.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Review later'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Confirm new price'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (accepted && mounted) {
+          await _proceedToCheckout(retryAfterPriceChange: false);
+        }
+      } else if (mounted) {
+        showAppError(context, error);
       }
     }
   }
@@ -497,7 +602,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
-                        onChanged: (_) => _updateRecommendedWattage(),
+                        onChanged: (_) {
+                          _updateRecommendedWattage();
+                          _scheduleServerQuote();
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -549,7 +657,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                       item.category.contains('Supply');
 
               return GestureDetector(
-                onTap: () => setState(() => _selectedProduct = item),
+                onTap: () {
+                  setState(() => _selectedProduct = item);
+                  _scheduleServerQuote();
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.all(14),
@@ -728,7 +839,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                       icon: const Icon(Icons.remove_circle_outline,
                           color: AppColors.textSecondary),
                       onPressed: _quantity > 1
-                          ? () => setState(() => _quantity--)
+                          ? () {
+                              setState(() => _quantity--);
+                              _scheduleServerQuote();
+                            }
                           : null,
                     ),
                     Text('$_quantity',
@@ -739,7 +853,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline,
                           color: AppColors.gold),
-                      onPressed: () => setState(() => _quantity++),
+                      onPressed: () {
+                        setState(() => _quantity++);
+                        _scheduleServerQuote();
+                      },
                     ),
                   ],
                 ),
@@ -759,8 +876,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 10)),
                     value: _includeQuickConnectors,
-                    onChanged: (v) =>
-                        setState(() => _includeQuickConnectors = v ?? false),
+                    onChanged: (v) {
+                      setState(() => _includeQuickConnectors = v ?? false);
+                      _scheduleServerQuote();
+                    },
                   ),
                 ),
                 Material(
@@ -779,8 +898,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 10)),
                     value: _includeMountingClips,
-                    onChanged: (v) =>
-                        setState(() => _includeMountingClips = v ?? false),
+                    onChanged: (v) {
+                      setState(() => _includeMountingClips = v ?? false);
+                      _scheduleServerQuote();
+                    },
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -809,6 +930,39 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
             ),
             child: Column(
               children: [
+                if (_pricingError != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.danger.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: AppColors.danger.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Could not calculate the server price: $_pricingError',
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: _isCalculatingPrice
+                              ? null
+                              : () => unawaited(_refreshServerQuote()),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Retry calculation'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -819,7 +973,12 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                               fontWeight: FontWeight.w700,
                               fontSize: 14)),
                     ),
-                    Text('₹${_subtotal.round()}',
+                    Text(
+                        _serverQuote == null
+                            ? _isCalculatingPrice
+                                ? 'Calculating…'
+                                : 'Unavailable'
+                            : money(_displayTotal),
                         style: const TextStyle(
                             color: AppColors.goldDark,
                             fontWeight: FontWeight.w900,
@@ -858,7 +1017,10 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _submitting || _minimumOrderShortfall > 0
+                    onPressed: _submitting ||
+                            _isCalculatingPrice ||
+                            _serverQuote == null ||
+                            _minimumOrderShortfall > 0
                         ? null
                         : _proceedToCheckout,
                     icon: _submitting
@@ -871,9 +1033,11 @@ class _PowerSupplyScreenState extends State<PowerSupplyScreen> {
                     label: Text(
                       _submitting
                           ? 'Submitting Order...'
-                          : _minimumOrderShortfall > 0
-                              ? 'Minimum order ${money(2500)}'
-                              : 'Order Power Supply (${money(_subtotal)})',
+                          : _isCalculatingPrice
+                              ? 'Calculating server price...'
+                              : _minimumOrderShortfall > 0
+                                  ? 'Minimum order ${money(2500)}'
+                                  : 'Order Power Supply (${money(_displayTotal)})',
                     ),
                   ),
                 ),

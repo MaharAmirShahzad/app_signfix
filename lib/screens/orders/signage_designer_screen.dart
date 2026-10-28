@@ -161,6 +161,11 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   double _widthFt = 3.0;
   double _heightFt = 1.5;
   final int _quantity = 1;
+  Map<String, dynamic>? _serverQuote;
+  bool _isCalculatingPrice = true;
+  String? _pricingError;
+  Timer? _priceDebounce;
+  int _priceRequestGeneration = 0;
 
   // AI Design Generation State
   bool _isGeneratingAi = false;
@@ -174,30 +179,87 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   void initState() {
     super.initState();
     _selectedFont = approvedFonts[0];
+    unawaited(_refreshServerQuote());
   }
 
   @override
   void dispose() {
     _textCtrl.dispose();
     _addressCtrl.dispose();
+    _priceDebounce?.cancel();
     super.dispose();
   }
 
-  double get _areaSqft => _widthFt * _heightFt;
+  double? get _calculatedPrice =>
+      (_serverQuote?['estimatedPrice'] as num?)?.toDouble();
 
-  double get _calculatedPrice {
-    final rate = (_selectedBacking['rate'] as num).toDouble();
-    // Area cost + lettering base cost
-    final areaCost = _areaSqft * rate;
-    final letteringCost = (_textCtrl.text.replaceAll(' ', '').length) * 45.0;
-    return (areaCost + letteringCost) * _quantity;
+  String get _calculatorMaterial => switch (_selectedBacking['id']) {
+        'acrylic_black' || 'acrylic_clear' => 'Acrylic',
+        'acp_brushed_gold' => 'ACP',
+        'acp_silver' => 'Aluminium',
+        'wood_grain' => 'Other',
+        _ => 'Acrylic',
+      };
+
+  Map<String, dynamic> get _calculatorInput => {
+        'product': 'Acrylic Sign Board',
+        'length': _widthFt,
+        'width': _heightFt,
+        'unit': 'ft',
+        'quantity': _quantity,
+        'material': _calculatorMaterial,
+        'lighting': 'LED',
+        'installation': true,
+        'transportation': true,
+      };
+
+  Future<bool> _refreshServerQuote() async {
+    final requestGeneration = ++_priceRequestGeneration;
+    if (mounted) {
+      setState(() {
+        _isCalculatingPrice = true;
+        _pricingError = null;
+        _serverQuote = null;
+      });
+    }
+    try {
+      final quote = await widget.api.calculate(_calculatorInput);
+      if (!mounted || requestGeneration != _priceRequestGeneration) {
+        return false;
+      }
+      setState(() => _serverQuote = quote);
+      return true;
+    } catch (error) {
+      if (mounted && requestGeneration == _priceRequestGeneration) {
+        setState(() => _pricingError = error.toString());
+      }
+      return false;
+    } finally {
+      if (mounted && requestGeneration == _priceRequestGeneration) {
+        setState(() => _isCalculatingPrice = false);
+      }
+    }
+  }
+
+  void _scheduleServerQuote() {
+    _priceDebounce?.cancel();
+    _priceRequestGeneration++;
+    setState(() {
+      _isCalculatingPrice = true;
+      _pricingError = null;
+      _serverQuote = null;
+    });
+    _priceDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => unawaited(_refreshServerQuote()),
+    );
   }
 
   bool get _hasBannerMinimum =>
       requiresPromotionalOrderMinimum(widget.promotionBannerId);
 
   double get _minimumOrderShortfall =>
-      _hasBannerMinimum ? orderMinimumShortfall(_calculatedPrice) : 0;
+      _hasBannerMinimum ? orderMinimumShortfall(_calculatedPrice ?? 0) : 0;
 
   bool _validateDeliveryRegion() {
     final isValid =
@@ -342,7 +404,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
     }
   }
 
-  Future<void> _submitSignageOrder() async {
+  Future<void> _submitSignageOrder({bool retryAfterPriceChange = true}) async {
     final text = _textCtrl.text.trim();
     final address = _structuredAddress?.fullDisplayAddress.isNotEmpty == true
         ? _structuredAddress!.fullDisplayAddress
@@ -365,6 +427,14 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
       return;
     }
     if (!_validateDeliveryRegion()) return;
+    if (_isCalculatingPrice || _calculatedPrice == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Wait for the latest server price before submitting.')),
+      );
+      return;
+    }
     if (_minimumOrderShortfall > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -376,10 +446,12 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
       return;
     }
 
+    final pricingInput = Map<String, dynamic>.from(_calculatorInput);
+    final estimatedPrice = _calculatedPrice!;
     setState(() => _submittingOrder = true);
     try {
       final orderSpecs = {
-        'product': 'Acrylic Sign Board',
+        ...pricingInput,
         'category': 'Signage Design System',
         'signText': text,
         'signFont': _selectedFont.name,
@@ -388,20 +460,13 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
         'backingMaterial': _selectedBacking['name'],
         'backingId': _selectedBacking['id'],
         'wallStyle': _selectedWall['name'],
-        'length': _widthFt,
-        'width': _heightFt,
-        'quantity': _quantity,
-        'material': 'Acrylic',
-        'lighting': 'LED',
-        'installation': true,
-        'transportation': true,
         'address': address,
         'city': _structuredAddress?.city.trim(),
         'state': _structuredAddress?.state.trim(),
         'pincode': _structuredAddress?.pincode.trim(),
         'deliveryAddress': _structuredAddress?.toMap(),
         'saveAddress': _structuredAddress?.saveToProfile ?? false,
-        'estimatedPrice': _calculatedPrice,
+        'estimatedPrice': estimatedPrice,
         'aiGeneratedImageUrl': _aiGeneratedImageUrl,
         'aiPrompt': _aiPrompt,
         'idempotencyKey':
@@ -424,7 +489,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
           title: const Text('Signboard Order Submitted',
               style: TextStyle(color: AppColors.white)),
           content: Text(
-            'Order #$orderNo has been submitted successfully.\n\nSignboard: "$text"\nFont: ${_selectedFont.name}\nBacking: ${_selectedBacking['name']}\nSize: $_widthFt×$_heightFt ft\nTotal: ₹${_calculatedPrice.round()}\n\nEligible for ₹200 Cashback upon verified payment.',
+            'Order #$orderNo has been submitted successfully.\n\nSignboard: "$text"\nFont: ${_selectedFont.name}\nBacking: ${_selectedBacking['name']}\nSize: $_widthFt×$_heightFt ft\nTotal: ${money(_calculatedPrice)}\n\nEligible for ₹200 Cashback upon verified payment.',
             style: const TextStyle(color: AppColors.darkSecondary),
           ),
           actions: [
@@ -440,6 +505,36 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
         ),
       );
     } catch (e) {
+      if (e is ApiException && e.statusCode == 409 && retryAfterPriceChange) {
+        if (mounted) setState(() => _submittingOrder = false);
+        final oldPrice = _calculatedPrice;
+        final refreshed = await _refreshServerQuote();
+        if (!mounted || !refreshed || _calculatedPrice == null) return;
+        final accepted = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text('Price updated'),
+                content: Text(
+                  'The server price changed from ${money(oldPrice)} to ${money(_calculatedPrice)}. Confirm the new estimate to submit again.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Review later'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Confirm new price'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (accepted && mounted) {
+          await _submitSignageOrder(retryAfterPriceChange: false);
+        }
+        return;
+      }
       if (mounted) {
         setState(() => _submittingOrder = false);
         showAppError(context, e);
@@ -450,6 +545,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
   @override
   Widget build(BuildContext context) {
     final previewText = _textCtrl.text.isEmpty ? 'SIGNFIX' : _textCtrl.text;
+    final serverArea = _serverQuote?['area'];
+    final areaLabel = serverArea is num
+        ? '${serverArea.toStringAsFixed(1)} ${_serverQuote?['areaUnit'] ?? 'sqft'}'
+        : 'Area pending server quote';
     final backingColor = _selectedBacking['color'] as Color;
     final previewBackingColor = Color.alphaBlend(
       backingColor,
@@ -600,7 +699,7 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '${_widthFt.toStringAsFixed(1)} × ${_heightFt.toStringAsFixed(1)} ft (${_areaSqft.toStringAsFixed(1)} sq ft)',
+                      '${_widthFt.toStringAsFixed(1)} × ${_heightFt.toStringAsFixed(1)} ft ($areaLabel)',
                       style: const TextStyle(
                           color: AppColors.darkSecondary,
                           fontSize: 10,
@@ -792,7 +891,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                 selectedColor: AppColors.gold,
                 backgroundColor: AppColors.white,
                 side: const BorderSide(color: AppColors.cardBorder),
-                onSelected: (_) => setState(() => _selectedBacking = b),
+                onSelected: (_) {
+                  setState(() => _selectedBacking = b);
+                  _scheduleServerQuote();
+                },
               );
             }).toList(),
           ),
@@ -840,7 +942,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                         max: 10.0,
                         divisions: 18,
                         activeColor: AppColors.gold,
-                        onChanged: (v) => setState(() => _widthFt = v),
+                        onChanged: (v) {
+                          setState(() => _widthFt = v);
+                          _scheduleServerQuote();
+                        },
                       ),
                     ),
                     Text('${_widthFt.toStringAsFixed(1)} ft',
@@ -860,7 +965,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                         max: 5.0,
                         divisions: 18,
                         activeColor: AppColors.gold,
-                        onChanged: (v) => setState(() => _heightFt = v),
+                        onChanged: (v) {
+                          setState(() => _heightFt = v);
+                          _scheduleServerQuote();
+                        },
                       ),
                     ),
                     Text('${_heightFt.toStringAsFixed(1)} ft',
@@ -1004,13 +1112,37 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                               fontWeight: FontWeight.w700,
                               fontSize: 14)),
                     ),
-                    Text('₹${_calculatedPrice.round()}',
+                    if (_isCalculatingPrice)
+                      const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: AppColors.gold),
+                      )
+                    else
+                      Text(
+                        _calculatedPrice == null
+                            ? 'Unavailable'
+                            : money(_calculatedPrice),
                         style: const TextStyle(
                             color: AppColors.goldDark,
                             fontWeight: FontWeight.w900,
-                            fontSize: 20)),
+                            fontSize: 20),
+                      ),
                   ],
                 ),
+                if (_pricingError != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _isCalculatingPrice
+                          ? null
+                          : () => unawaited(_refreshServerQuote()),
+                      icon: const Icon(Icons.refresh),
+                      label: Text('Price unavailable. Retry: $_pricingError'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 const Row(
                   children: [
@@ -1042,7 +1174,10 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: _submittingOrder || _minimumOrderShortfall > 0
+                    onPressed: _submittingOrder ||
+                            _isCalculatingPrice ||
+                            _calculatedPrice == null ||
+                            _minimumOrderShortfall > 0
                         ? null
                         : _submitSignageOrder,
                     icon: _submittingOrder
@@ -1055,9 +1190,13 @@ class _SignageDesignerScreenState extends State<SignageDesignerScreen> {
                     label: Text(
                       _submittingOrder
                           ? 'Submitting Order...'
-                          : _minimumOrderShortfall > 0
-                              ? 'Minimum order ${money(2500)}'
-                              : 'Order Signboard (${money(_calculatedPrice)})',
+                          : _isCalculatingPrice
+                              ? 'Calculating server price...'
+                              : _pricingError != null
+                                  ? 'Retry price calculation'
+                                  : _minimumOrderShortfall > 0
+                                      ? 'Minimum order ${money(2500)}'
+                                      : 'Order Signboard (${money(_calculatedPrice)})',
                     ),
                   ),
                 ),

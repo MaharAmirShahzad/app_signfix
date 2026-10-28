@@ -11,9 +11,15 @@ import 'wallet_screen.dart';
 import '../../widgets/address_autocomplete_field.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.api, required this.onLogout});
+  const ProfileScreen({
+    super.key,
+    required this.api,
+    required this.onLogout,
+    this.onOpenActivity,
+  });
   final ApiClient api;
   final VoidCallback onLogout;
+  final ValueChanged<int>? onOpenActivity;
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -426,10 +432,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // ── Stats ────────────────────────────────────────────────────
                   Row(children: [
                     _StatCard('${p['totalOrders'] ?? 0}', 'Orders',
-                        Icons.shopping_bag_outlined, AppColors.gold),
+                        Icons.shopping_bag_outlined, AppColors.gold,
+                        onTap: () => widget.onOpenActivity?.call(0)),
                     const SizedBox(width: 8),
                     _StatCard('${p['totalServices'] ?? 0}', 'Services',
-                        Icons.build_outlined, AppColors.info),
+                        Icons.build_outlined, AppColors.info,
+                        onTap: () => widget.onOpenActivity?.call(1)),
                     const SizedBox(width: 8),
                     _StatCard(
                       money(p['walletBalance'] ?? 0),
