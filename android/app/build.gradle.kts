@@ -3,10 +3,11 @@ import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
+    id("com.google.gms.google-services") // Firebase Plugin
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// ── Load signing key ──────────────────────────────────────────────────────────
+// Load signing key
 val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
@@ -24,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.signfix.app"
+        applicationId = "com.signfix.app" // ✅ Ye JSON file se match hai
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -34,7 +35,7 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias      = keyProperties["keyAlias"]    as String? ?: ""
+            keyAlias      = keyProperties["keyAlias"] as String? ?: ""
             keyPassword   = keyProperties["keyPassword"] as String? ?: ""
             storeFile     = keyProperties["storeFile"]?.let { file(it) }
             storePassword = keyProperties["storePassword"] as String? ?: ""
@@ -43,19 +44,22 @@ android {
 
     buildTypes {
         release {
-            signingConfig    = signingConfigs.getByName("release")
-            isMinifyEnabled  = false
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
             isShrinkResources = false
         }
-        debug {
-            signingConfig = signingConfigs.getByName("debug")
-        }
+        // Debug ke liye default Flutter signing use hogi, isliye explicit block hata diya
     }
+}
+
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1")) // Updated BOM
+    implementation("com.google.firebase:firebase-analytics")
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 

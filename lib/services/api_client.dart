@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode, this.field, this.code});
@@ -255,13 +256,21 @@ class ApiClient {
   final String baseUrl;
   final bool mockMode;
   final http.Client _httpClient;
+  static const _secureStorage = FlutterSecureStorage();
   String? _token;
   String? _userEmail;
   String? get token => _token;
 
   Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('token');
+    _token = await _secureStorage.read(key: 'token');
+    if (_token == null) {
+      _token = prefs.getString('token');
+      if (_token != null) {
+        await _secureStorage.write(key: 'token', value: _token);
+        await prefs.remove('token');
+      }
+    }
     _userEmail = prefs.getString('userEmail');
     // Γ£à Restore persisted profile data
     final savedName = prefs.getString('customer_name');
@@ -289,7 +298,8 @@ class ApiClient {
       if (savedName != null && savedName.isNotEmpty) {
         _mockProfile['name'] = savedName;
       }
-      await prefs.setString('token', _token!);
+      await _secureStorage.write(key: 'token', value: _token);
+      await prefs.remove('token');
       await prefs.setString('userEmail', _userEmail!);
       return {
         'token': _token,
@@ -309,11 +319,91 @@ class ApiClient {
     if (token == null || token.isEmpty) {
       throw const ApiException('Login token was not returned.');
     }
-    _token = token;
     _userEmail = email.trim();
+    await saveSession(token, email: _userEmail);
+    return data;
+  }
+
+  Future<Map<String, dynamic>> loginWithGoogle({
+    String? idToken,
+    String? email,
+    String? name,
+  }) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      _token = 'mock-customer-google-token';
+      _userEmail = email?.trim() ?? 'google.customer@signfix.in';
+      if (name != null && name.isNotEmpty) _mockProfile['name'] = name;
+      final prefs = await SharedPreferences.getInstance();
+      await _secureStorage.write(key: 'token', value: _token);
+      await prefs.remove('token');
+      await prefs.setString('userEmail', _userEmail!);
+      return {
+        'token': _token,
+        'user': {
+          'email': _userEmail,
+          'name': _mockProfile['name'],
+          'role': 'customer'
+        }
+      };
+    }
+    final data = await _request('POST', '/auth/google', body: {
+      'idToken': idToken ?? 'google-auth-client-token',
+      if (email != null) 'email': email.trim(),
+      if (name != null) 'name': name.trim(),
+      'portal': 'customer',
+      'role': 'customer',
+    });
+    final token = data['token']?.toString();
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Login token was not returned.');
+    }
+    _userEmail = data['user']?['email']?.toString() ??
+        email?.trim() ??
+        'google.customer@signfix.in';
+    await saveSession(token, email: _userEmail);
+    return data;
+  }
+
+  Future<void> saveSession(String token, {String? email}) async {
+    if (token.isEmpty) {
+      throw const ApiException('Login token was not returned.');
+    }
+    _token = token;
+    await _secureStorage.write(key: 'token', value: token);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', token);
-    await prefs.setString('userEmail', _userEmail!);
+    await prefs.remove('token');
+    if (email != null && email.isNotEmpty) {
+      _userEmail = email;
+      await prefs.setString('userEmail', email);
+    }
+  }
+
+  Future<Map<String, dynamic>> loginWithFirebasePhone({
+    required String idToken,
+    String? name,
+  }) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      const email = 'phone_customer@signfix.in';
+      await saveSession('mock-customer-phone-token', email: email);
+      return {
+        'token': _token,
+        'user': {'email': email, 'name': name ?? '', 'role': 'customer'},
+        'isNewUser': false,
+      };
+    }
+    final data = await _request('POST', '/auth/firebase-phone', body: {
+      'idToken': idToken,
+      'role': 'customer',
+      if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+    });
+    final token = data['token']?.toString();
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Login token was not returned.');
+    }
+    final email = data['user']?['email']?.toString();
+    await saveSession(token, email: email);
     return data;
   }
 
@@ -327,7 +417,8 @@ class ApiClient {
       _mockProfile['email'] = email.trim();
       _mockProfile['phone'] = phone;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', _token!);
+      await _secureStorage.write(key: 'token', value: _token);
+      await prefs.remove('token');
       await prefs.setString('userEmail', _userEmail!);
       await prefs.setString('customer_name', name); // Γ£à save name
       return {
@@ -343,9 +434,7 @@ class ApiClient {
     });
     final token = data['token']?.toString();
     if (token != null && token.isNotEmpty) {
-      _token = token;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', token);
+      await saveSession(token);
     }
     return data;
   }
@@ -357,6 +446,7 @@ class ApiClient {
     _token = null;
     _userEmail = null;
     final prefs = await SharedPreferences.getInstance();
+    await _secureStorage.delete(key: 'token');
     await prefs.remove('token');
     await prefs.remove('userEmail');
   }
@@ -1070,6 +1160,7 @@ class ApiClient {
           prefs.remove('token');
           prefs.remove('userEmail');
         });
+        _secureStorage.delete(key: 'token');
       }
       // Show validation field errors if present
       if (decoded is Map && decoded['details'] != null) {

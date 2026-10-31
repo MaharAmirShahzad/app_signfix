@@ -86,7 +86,10 @@ final _mockJobs = <Map<String, dynamic>>[
     'longitude': 74.4023,
     'status': 'completed',
     'priority': 'normal',
-    'scheduledAt': DateTime.now().subtract(const Duration(days: 1)).toIso8601String().substring(0, 10),
+    'scheduledAt': DateTime.now()
+        .subtract(const Duration(days: 1))
+        .toIso8601String()
+        .substring(0, 10),
     'description': 'Replace cracked acrylic board with new 8×2 ft panel.',
     'evidencePhotos': <dynamic>[],
     'materials': <dynamic>[
@@ -109,7 +112,8 @@ final _mockJobs = <Map<String, dynamic>>[
     'status': 'assigned',
     'priority': 'emergency',
     'scheduledAt': DateTime.now().toIso8601String().substring(0, 10),
-    'description': 'Neon sign completely dead after power surge. Urgent fix needed.',
+    'description':
+        'Neon sign completely dead after power surge. Urgent fix needed.',
     'evidencePhotos': <dynamic>[],
     'materials': <dynamic>[],
     'statusHistory': [
@@ -192,10 +196,14 @@ class TechnicianApi {
     final p = await SharedPreferences.getInstance();
     _token = p.getString('technician_token');
     // ✅ Restore persisted name and photo
-    final savedName  = p.getString('tech_name');
+    final savedName = p.getString('tech_name');
     final savedPhoto = p.getString('tech_photo');
-    if (savedName  != null && savedName.isNotEmpty)  _mockProfile['name'] = savedName;
-    if (savedPhoto != null && savedPhoto.isNotEmpty) _mockProfile['profilePhotoPath'] = savedPhoto;
+    if (savedName != null && savedName.isNotEmpty) {
+      _mockProfile['name'] = savedName;
+    }
+    if (savedPhoto != null && savedPhoto.isNotEmpty) {
+      _mockProfile['profilePhotoPath'] = savedPhoto;
+    }
   }
 
   Future<void> login(String email, String password) async {
@@ -206,7 +214,9 @@ class TechnicianApi {
       // Restore saved name if exists
       final p = await SharedPreferences.getInstance();
       final savedName = p.getString('tech_name');
-      if (savedName != null && savedName.isNotEmpty) _mockProfile['name'] = savedName;
+      if (savedName != null && savedName.isNotEmpty) {
+        _mockProfile['name'] = savedName;
+      }
       await p.setString('technician_token', _token!);
       return;
     }
@@ -222,6 +232,65 @@ class TechnicianApi {
     _token = token;
     final p = await SharedPreferences.getInstance();
     await p.setString('technician_token', token);
+  }
+
+  Future<void> loginWithGoogle({
+    String? idToken,
+    String? email,
+    String? name,
+  }) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      _token = 'mock-technician-google-token';
+      _mockProfile['email'] = email?.trim() ?? 'tech@signfix.in';
+      final p = await SharedPreferences.getInstance();
+      await p.setString('technician_token', _token!);
+      return;
+    }
+    final d = await _request('POST', '/auth/google', body: {
+      'idToken': idToken ?? 'google-auth-client-token',
+      if (email != null) 'email': email.trim(),
+      if (name != null) 'name': name.trim(),
+      'portal': 'technician',
+      'role': 'technician',
+    });
+    final token = d['token']?.toString();
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Login token was not returned.');
+    }
+    _token = token;
+    final p = await SharedPreferences.getInstance();
+    await p.setString('technician_token', token);
+  }
+
+  Future<void> loginWithFirebasePhone({
+    required String idToken,
+    String? name,
+  }) async {
+    if (mockMode) {
+      await Future.delayed(_mockDelay);
+      _token = 'mock-technician-phone-token';
+      final p = await SharedPreferences.getInstance();
+      await p.setString('technician_token', _token!);
+      return;
+    }
+
+    final data = await _request('POST', '/auth/firebase-phone', body: {
+      'idToken': idToken,
+      'role': 'technician',
+      if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+    });
+    final token = data['token']?.toString();
+    if (token == null || token.isEmpty) {
+      throw const ApiException('Login token was not returned.');
+    }
+    _token = token;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('technician_token', token);
+    final email = data['user']?['email']?.toString();
+    if (email != null && email.isNotEmpty) {
+      await prefs.setString('technician_email', email);
+    }
   }
 
   Future<void> logout() async {
@@ -275,17 +344,23 @@ class TechnicianApi {
     });
   }
 
-
   Future<Map<String, dynamic>> dashboard() async {
     if (mockMode) {
       await Future.delayed(_mockDelay);
       final today = DateTime.now().toIso8601String().substring(0, 10);
-      final todayJobs = _mockJobs.where((j) => j['scheduledAt']?.toString().startsWith(today) == true).length;
+      final todayJobs = _mockJobs
+          .where((j) => j['scheduledAt']?.toString().startsWith(today) == true)
+          .length;
       final assigned = _mockJobs.where((j) => j['status'] == 'assigned').length;
-      final pending = _mockJobs.where((j) => ['assigned', 'accepted'].contains(j['status'])).length;
-      final inProgress = _mockJobs.where((j) => j['status'] == 'work_in_progress').length;
-      final completed = _mockJobs.where((j) => j['status'] == 'completed').length;
-      final emergency = _mockJobs.where((j) => j['priority'] == 'emergency').length;
+      final pending = _mockJobs
+          .where((j) => ['assigned', 'accepted'].contains(j['status']))
+          .length;
+      final inProgress =
+          _mockJobs.where((j) => j['status'] == 'work_in_progress').length;
+      final completed =
+          _mockJobs.where((j) => j['status'] == 'completed').length;
+      final emergency =
+          _mockJobs.where((j) => j['priority'] == 'emergency').length;
       return {
         'today': todayJobs,
         'assigned': assigned,
@@ -320,7 +395,8 @@ class TechnicianApi {
         await p.setString('tech_name', body['name'].toString());
       }
       if (body.containsKey('profilePhotoPath')) {
-        await p.setString('tech_photo', body['profilePhotoPath']?.toString() ?? '');
+        await p.setString(
+            'tech_photo', body['profilePhotoPath']?.toString() ?? '');
       }
       return Map<String, dynamic>.from(_mockProfile);
     }
@@ -353,9 +429,14 @@ class TechnicianApi {
         });
         if (extra != null) job.addAll(extra);
       }
-      return {'id': id, 'status': status, 'message': 'Job updated successfully.'};
+      return {
+        'id': id,
+        'status': status,
+        'message': 'Job updated successfully.'
+      };
     }
-    return _request('PATCH', '/technician/jobs/${Uri.encodeComponent(id)}/status',
+    return _request(
+        'PATCH', '/technician/jobs/${Uri.encodeComponent(id)}/status',
         body: {'status': status, ...?extra});
   }
 
@@ -364,13 +445,16 @@ class TechnicianApi {
       await Future.delayed(_mockDelay);
       return List<dynamic>.from(_mockNotifications);
     }
-    return (await _request('GET', '/technician/notifications'))['data'] as List<dynamic>? ?? [];
+    return (await _request('GET', '/technician/notifications'))['data']
+            as List<dynamic>? ??
+        [];
   }
 
   Future<void> markNotificationRead(String id) async {
     if (mockMode) {
       await Future.delayed(const Duration(milliseconds: 300));
-      final n = _mockNotifications.firstWhere((n) => n['id'] == id, orElse: () => {});
+      final n =
+          _mockNotifications.firstWhere((n) => n['id'] == id, orElse: () => {});
       if (n.isNotEmpty) n['read'] = true;
       return;
     }
@@ -422,7 +506,11 @@ class TechnicianApi {
     if (mockMode) {
       await Future.delayed(_mockDelay);
       if (otp == '123456') {
-        return {'verified': true, 'verificationToken': 'mock-otp-token-${DateTime.now().millisecondsSinceEpoch}'};
+        return {
+          'verified': true,
+          'verificationToken':
+              'mock-otp-token-${DateTime.now().millisecondsSinceEpoch}'
+        };
       }
       throw const ApiException('Invalid OTP. Please try again.');
     }
@@ -436,12 +524,14 @@ class TechnicianApi {
       await Future.delayed(_mockDelay);
       // Check duplicate mobile in mock
       if (data['mobile'] == '9999999999') {
-        throw const ApiException('This mobile number is already registered. Please log in or contact Admin.');
+        throw const ApiException(
+            'This mobile number is already registered. Please log in or contact Admin.');
       }
       return {
         'id': 'REG-${DateTime.now().millisecondsSinceEpoch}',
         'status': 'PENDING_APPROVAL',
-        'message': 'Your registration has been received and is pending admin approval.',
+        'message':
+            'Your registration has been received and is pending admin approval.',
         'submittedAt': DateTime.now().toIso8601String(),
       };
     }
@@ -454,8 +544,10 @@ class TechnicianApi {
       await Future.delayed(_mockDelay);
       return {
         'status': 'PENDING_APPROVAL',
-        'submittedAt': DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
-        'message': 'Your registration is under review. You will be notified once approved.',
+        'submittedAt':
+            DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+        'message':
+            'Your registration is under review. You will be notified once approved.',
       };
     }
     return _request('GET', '/auth/me');
@@ -466,17 +558,17 @@ class TechnicianApi {
   Future<Map<String, dynamic>> getJobDetail(String jobId) =>
       _request('GET', '/technician/jobs/${Uri.encodeComponent(jobId)}');
 
-  Future<Map<String, dynamic>> sendCompletionOtp(String jobId) =>
-      _request('POST', '/technician/jobs/${Uri.encodeComponent(jobId)}/completion-otp');
+  Future<Map<String, dynamic>> sendCompletionOtp(String jobId) => _request(
+      'POST', '/technician/jobs/${Uri.encodeComponent(jobId)}/completion-otp');
 
-  Future<Map<String, dynamic>> confirmJobCompletion(
-          String jobId, String otp) =>
+  Future<Map<String, dynamic>> confirmJobCompletion(String jobId, String otp) =>
       _request('POST', '/technician/jobs/${Uri.encodeComponent(jobId)}/confirm',
           body: {'otp': otp});
 
   Future<Map<String, dynamic>> updateLocation(
           String jobId, double lat, double lng) =>
-      _request('POST', '/technician/jobs/${Uri.encodeComponent(jobId)}/location',
+      _request(
+          'POST', '/technician/jobs/${Uri.encodeComponent(jobId)}/location',
           body: {'latitude': lat, 'longitude': lng});
 
   Future<Map<String, dynamic>> uploadEvidence(
@@ -494,7 +586,8 @@ class TechnicianApi {
     return _decode(await http.Response.fromStream(await request.send()));
   }
 
-  Future<Map<String, dynamic>> upload(File file, String kind, String jobId) async {
+  Future<Map<String, dynamic>> upload(
+      File file, String kind, String jobId) async {
     if (mockMode) {
       await Future.delayed(_mockDelay);
       return {
@@ -526,10 +619,14 @@ class TechnicianApi {
           r = await http.get(u, headers: h).timeout(timeout);
           break;
         case 'POST':
-          r = await http.post(u, headers: h, body: jsonEncode(body)).timeout(timeout);
+          r = await http
+              .post(u, headers: h, body: jsonEncode(body))
+              .timeout(timeout);
           break;
         case 'PATCH':
-          r = await http.patch(u, headers: h, body: jsonEncode(body)).timeout(timeout);
+          r = await http
+              .patch(u, headers: h, body: jsonEncode(body))
+              .timeout(timeout);
           break;
         default:
           throw ApiException('Unsupported HTTP method: $method');

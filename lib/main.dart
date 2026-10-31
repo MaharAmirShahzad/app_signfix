@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/app_theme.dart';
+import 'firebase_options.dart';
 import 'services/api_client.dart' as cust;
 import 'technician/services/api_client.dart' as tech;
 
@@ -30,13 +32,13 @@ Future<void> _firebaseBackgroundHandler(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Firebase init — gracefully skip if google-services.json not configured
-  try {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
-  } catch (_) {
-    // Firebase not configured — push notifications disabled, app works normally
-  }
+  // Android's google-services.json is the source of truth for its default app.
+  await Firebase.initializeApp(
+    options: defaultTargetPlatform == TargetPlatform.android
+        ? null
+        : DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundHandler);
   runApp(const SignFixApp());
 }
 
@@ -64,16 +66,9 @@ class _SignFixAppState extends State<SignFixApp> {
       _customerApi.restoreSession(),
       _technicianApi.restoreSession(),
     ]);
-    // Register FCM token if logged in
-    await _setupFcm();
     if (mounted) setState(() => _ready = true);
-    final pendingMessage = _pendingPushMessage;
-    _pendingPushMessage = null;
-    if (pendingMessage != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _openQuotationFromPush(pendingMessage);
-      });
-    }
+    // Push setup can wait on a permission prompt or Firebase token request.
+    unawaited(_setupFcm());
   }
 
   Future<void> _setupFcm() async {
@@ -92,6 +87,7 @@ class _SignFixAppState extends State<SignFixApp> {
         }
       }
       _pendingPushMessage = await messaging.getInitialMessage();
+      _schedulePendingPush();
       FirebaseMessaging.onMessageOpenedApp.listen(_openQuotationFromPush);
       // Listen for token refresh
       messaging.onTokenRefresh.listen((newToken) async {
@@ -140,6 +136,15 @@ class _SignFixAppState extends State<SignFixApp> {
     }
   }
 
+  void _schedulePendingPush() {
+    final pendingMessage = _pendingPushMessage;
+    if (pendingMessage == null || !_ready) return;
+    _pendingPushMessage = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openQuotationFromPush(pendingMessage);
+    });
+  }
+
   String? _quotationNoFromPush(RemoteMessage message) {
     final eventKey = message.data['eventKey']?.toString();
     if (eventKey != 'quotation.sent' && eventKey != 'quotation.expiring') {
@@ -171,13 +176,7 @@ class _SignFixAppState extends State<SignFixApp> {
 
   void _refresh() {
     setState(() => _selectedPortal = null);
-    final pendingMessage = _pendingPushMessage;
-    if (_customerApi.token != null && pendingMessage != null) {
-      _pendingPushMessage = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _openQuotationFromPush(pendingMessage);
-      });
-    }
+    if (_customerApi.token != null) _schedulePendingPush();
   }
 
   void _onPortalSelect(PortalType portal) =>

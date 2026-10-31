@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/app_theme.dart';
 import '../../services/api_client.dart';
+import '../../../services/auth_service.dart';
 import '../../widgets/common.dart';
 import '../registration/reg_step1_personal.dart';
 import '../registration/registration_data.dart';
 import '../../../screens/auth/forgot_password_screen.dart';
+import '../../../screens/auth/phone_otp_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -24,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
+  bool _googleLoading = false;
   bool _obscure = true;
   String? _error;
   String? _emailError;
@@ -34,6 +38,38 @@ class _LoginScreenState extends State<LoginScreen> {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _googleLoading = true;
+      _error = null;
+    });
+    try {
+      final res = await AuthService.signInWithGoogle(role: 'technician');
+      if (res == null) return;
+      final String? token = res['token']?.toString();
+      if (token != null && token.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('technician_token', token);
+        if (res['user'] != null && res['user']['email'] != null) {
+          await prefs.setString(
+              'technician_email', res['user']['email'].toString());
+        }
+        await widget.api.restoreSession();
+        widget.onAuthenticated();
+      } else {
+        throw Exception('Token not received from server');
+      }
+    } catch (e) {
+      if (mounted) {
+        final str = e.toString().replaceFirst('Exception: ', '');
+        setState(() => _error = str);
+      }
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -274,6 +310,37 @@ class _LoginScreenState extends State<LoginScreen> {
                           loading: _loading,
                           onPressed: _submit,
                           child: const Text('Start Work')),
+                      const SizedBox(height: 14),
+                      GoogleSignInButton(
+                        loading: _googleLoading,
+                        label: 'Sign in with Google',
+                        onPressed: _loading ? null : _handleGoogleSignIn,
+                      ),
+
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: _loading || _googleLoading
+                            ? null
+                            : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PhoneOtpLoginScreen(
+                                      authenticate: (idToken, name) =>
+                                          widget.api.loginWithFirebasePhone(
+                                        idToken: idToken,
+                                        name: name,
+                                      ),
+                                      onAuthenticated: widget.onAuthenticated,
+                                    ),
+                                  ),
+                                ),
+                        icon: const Icon(Icons.phone_android),
+                        label: const Text('Sign in with phone'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                        ),
+                      ),
+
                       const SizedBox(height: 8),
 
                       TextButton(
